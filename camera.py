@@ -1,4 +1,6 @@
 ### Based off code provided in ECE4191 Github file called Camera_image_retrieval.ipynb
+# Author: Edric Lay, 28/07
+# Last edited: Edric Lay, 30/07
 import cv2
 import matplotlib.pyplot as plt
 

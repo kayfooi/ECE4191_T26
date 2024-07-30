@@ -1,5 +1,7 @@
 ### Based off code provided in ECE4191 Github file called L298N_H-bridge_ICs.ipynb
 ### Theoretically, we could just make this into big object named Bot or something.
+# Author: Edric Lay, 28/07
+# Last edited: Edric Lay, 30/07
 import time
 import RPi.GPIO as GPIO 
 
