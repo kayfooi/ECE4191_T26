@@ -133,7 +133,6 @@ def motorControl(dTime: int, direction: int, dutyL: int = 20, dutyR: int = 20, f
     # Bot should stop.
     pwm_L.stop()
     pwm_R.stop()
-    GPIO.cleanup()
 
 if __name__ == "__main__":
     # Use to this test if the bot is driving properly.
