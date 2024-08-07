@@ -18,6 +18,21 @@ class DiffDriveRobot:
         self.r = wheel_radius
         self.l = wheel_sep
 
+    # Here, we simulate the real system and measurement
+    def motor_simulator(self,w,duty_cycle):
+        
+        torque = self.I*duty_cycle
+        
+        if (w > 0):
+            w = min(w + self.dt*(torque - self.d*w),3)
+        elif (w < 0):
+            w = max(w + self.dt*(torque - self.d*w),-3)
+        else:
+            w = w + self.dt*(torque)
+        
+        return w
+
+    # Find the motor encoder measurement to determine how fast the wheel is turining
     def motorEncoder(self):
         pass
     
