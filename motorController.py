@@ -16,6 +16,10 @@ motor_B_in2 = 24
 motor_B_in1 = 25
 motor_B_en = 19
 
+# motorEncoder
+encoderAin = 15
+encoderBin = 16
+
 # Set GPIO modes
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(motor_A_in1, GPIO.OUT)
@@ -24,6 +28,24 @@ GPIO.setup(motor_B_in1, GPIO.OUT)
 GPIO.setup(motor_B_in2, GPIO.OUT)
 GPIO.setup(motor_A_en, GPIO.OUT)
 GPIO.setup(motor_B_en, GPIO.OUT)
+
+# # Setup GPIO for encoders
+# GPIO.setup(encoderAin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+# GPIO.setup(encoderBin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+
+# # Time variables to detect speeds.
+# lastTime = 0
+# elapsedTime = 0
+
+# # Used to detection rising edges, and distance between rising edges.
+# def on_rising(input_pin):
+#     global lastTime, elapsedTime
+#     currentTime = time.time
+#     elapsedTime = currentTime - lastTime
+#     lastTime = currentTime
+
+# GPIO.add_event_detect(encoderAin, GPIO.RISING, callback=on_rising)
+# GPIO.add_event_detect(encoderBin, GPIO.RISING, callback=on_rising)
 
 def motorDirection(motor: int = 0, direction: int = 0):
     """Decides what direction for the motor to rotate.
@@ -147,3 +169,5 @@ if __name__ == "__main__":
 
     # Go Backward
     motorControl(dTime = 5, direction = 3)
+
+    
