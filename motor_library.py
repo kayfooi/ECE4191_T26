@@ -1,4 +1,5 @@
 from gpiozero import Motor
+from time import sleep
 
 motor1 = Motor(4, 14)
 motor2 = Motor(17,27)
@@ -21,4 +22,7 @@ while True:
 # stops motors
 motor1.stop()
 motor2.stop()
+
+# motor calibration --> forward, back, turn 45 degrees left & right
+
 

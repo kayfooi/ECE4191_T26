@@ -3,6 +3,9 @@
 # Last edited: Edric Lay, 30/07
 import cv2
 import matplotlib.pyplot as plt
+import torch
+import torchvision
+import torchvision.transforms as transforms
 
 def cameraDisp():
     # Read from camera feed
@@ -23,3 +26,12 @@ def cameraDisp():
 if __name__ == "__main__":
     # Use to this test if the camera is working properly.
     cameraDisp()
+
+
+## image classification
+
+# normalising images
+transform = transforms.Compose(
+    [transforms.ToTensor(),
+     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+
