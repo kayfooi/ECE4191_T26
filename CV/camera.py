@@ -2,12 +2,8 @@
 # Author: Edric Lay, 28/07
 # Last edited: Edric Lay, 30/07
 import cv2
-import matplotlib.pyplot as plt
-import torch
-import torchvision
-import torchvision.transforms as transforms
 
-def cameraDisp():
+def capture():
     # Read from camera feed
     cap = cv2.VideoCapture(0)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH,640)
@@ -18,20 +14,14 @@ def cameraDisp():
     ret = False
     while (not ret):
         ret, frame = cap.read()
-        cv2.imshow(frame)
 
     # Close
     cap.release()
 
+    return frame
+
 if __name__ == "__main__":
     # Use to this test if the camera is working properly.
-    cameraDisp()
-
-
-## image classification
-
-# normalising images
-transform = transforms.Compose(
-    [transforms.ToTensor(),
-     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+    img = capture()
+    cv2.imshow(img)
 
