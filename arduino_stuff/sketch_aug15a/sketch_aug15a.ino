@@ -55,12 +55,12 @@ void loop() { // put your main code here, to run repeatedly:
   delayMicroseconds(2);
 
   // Sets the trigPin on HIGH state for 10 micro seconds
-  digitalWrite(trigPin, HIGH);
+  digitalWrite(TRIGGER_PIN, HIGH);
   delayMicroseconds(10);
-  digitalWrite(trigPin, LOW);
+  digitalWrite(TRIGGER_PIN, LOW);
 
   // Reads the echoPin, returns the sound wave travel time in microseconds
-  duration = pulseIn(echoPin, HIGH);
+  duration = pulseIn(ECHO_PIN, HIGH);
 
   // Calculating the distance
   distance= duration*0.034/2;
@@ -123,7 +123,5 @@ void loop() { // put your main code here, to run repeatedly:
   // we invert the final range to make the dominant colour have the HIGHEST value (by default it's the LOWEST value).
   // this line must run continuously inside the loop() function of your code.
   int new_frequency = map(frequency, 25, 70, 255, 0)
-
-
 
 }
