@@ -18,15 +18,16 @@ def is_point_in_camera_view(camera, point):
     return False
 
 def render_scene(case_id):
-    bpy.context.scene.render.filepath = os.path.join(directory, "test_imgs", "test_"+str(case_id)+".jpg")
-    print("path =", bpy.context.scene.render.filepath)
-    bpy.ops.render.render(write_still=True)
+    # bpy.context.scene.render.filepath = os.path.join(directory, "test_imgs", "test_"+str(case_id)+".jpg")
+    # print("path =", bpy.context.scene.render.filepath)
+    bpy.ops.render.render()
 
 def generate_test_cases():
     CAMERA_HEIGHT = 0.32 # meters
     CAMERA_AOD = 24 # degreees (angle of depression)
-    CAMERA_DISTORTION = 0.02 # barrel distortion
+    CAMERA_DISTORTION = 0.04 # barrel distortion
     BALL_BOUNDARY = 1 # allow balls this many meters outside test boundary
+    NUM_SCENARIOS = 50
 
     objs = bpy.data.objects
     cases = []
@@ -39,6 +40,8 @@ def generate_test_cases():
     max_x = center.x + dims.x/2
     min_y = center.y - dims.y/2
     max_y = center.y + dims.y/2
+
+    bpy.data.scenes["Scene"].node_tree.nodes["Lens Distortion"].inputs[1].default_value = CAMERA_DISTORTION # type: ignore
 
     n_balls = 20
 
@@ -55,7 +58,10 @@ def generate_test_cases():
         tennis_balls.append(ball)
     
     # Generate test images
-    for case_id in range(30):
+    for case_id in range(NUM_SCENARIOS):
+        # frame number is linked to output file names and some randomisation
+        bpy.data.scenes['Scene'].frame_set(case_id + 1)
+        
         cam_heading = random.uniform(0, 360)
         cam_location = Vector((
             random.uniform(min_x, max_x),
