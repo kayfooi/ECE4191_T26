@@ -69,7 +69,7 @@ def image_to_world(image_coords, H):
 # Have found that this doesn't really fix anything
 alphas = list(np.arange(-0.1, 0.1, 0.01))
 min_error = math.inf
-best_alpha = None
+best_alpha = 0.00
 
 errors = []
 for alpha in alphas:
