@@ -3,8 +3,8 @@ import CV.camera as camera
 
 class DiffDriveRobot:
     # Based off code provided in ECE4191 Github file called Robot_navigation_and_control.ipynb
-    def __init__(self,inertia=5, dt=0.1, drag=0.2, wheel_radius=0.05, wheel_sep=0.15):
-        
+    def __init__(self,inertia=5, dt=0.1, drag=0.2, wheel_radius=0.05, wheel_sep=0.15, homographyMatrix = np.zeros(3)):
+        # Position will be located in reference to 
         self.x = 0.0 # y-position
         self.y = 0.0 # y-position 
         self.th = 0.0 # orientation

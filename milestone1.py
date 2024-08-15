@@ -9,17 +9,15 @@ Main file to complete milestone one:
 from robot import DiffDriveRobot
 
 
-
-
-
 if __name__ == "__main__":
     bot = DiffDriveRobot()
 
     # Initial Scan (runs in the background)
     bot.rotate(360)
 
-    scanning = True
-    while scanning:
-        ball_loc = bot.detect_ball()
+    detected = None
+    while not None:
+        detected = bot.detect_ball()
+
 
 
