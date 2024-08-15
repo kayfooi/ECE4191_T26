@@ -15,3 +15,7 @@ Week 3:
 - Drive with basic odometry (feedback control from shaft encoders, motion model estimating relative robot position)
 
 Friday 4:30pm - Proposal Due
+
+### World Coordinate System
+
+![world coordinates](world_coordinates.jpg)

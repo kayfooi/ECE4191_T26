@@ -2,85 +2,38 @@ import numpy as np
 import CV.camera as camera
 
 class DiffDriveRobot:
-    # Based off code provided in ECE4191 Github file called Robot_navigation_and_control.ipynb
-    def __init__(self,inertia=5, dt=0.1, drag=0.2, wheel_radius=0.05, wheel_sep=0.15, homographyMatrix = np.zeros(3)):
-        # Position will be located in reference to 
-        self.x = 0.0 # y-position
-        self.y = 0.0 # y-position 
-        self.th = 0.0 # orientation
-        
-        self.wl = 0.0 #rotational velocity left wheel
-        self.wr = 0.0 #rotational velocity right wheel
-        
-        self.I = inertia
-        self.d = drag
-        self.dt = dt
-        
-        self.r = wheel_radius
-        self.l = wheel_sep
-
+    def __init__(self,init_pos = np.array([0.0, 0.0]), init_th = 0):
+        self.pos = init_pos
+        self.th = init_th
         # Homography that transforms image coordinates to world coordinates
         self._H = np.array([
             [1, 0, 0],
             [0, 1, 0],
             [0, 0, 1]
         ])
-
-    # Here, we simulate the real system and measurement
-    def motor_simulator(self,w,duty_cycle):
-        
-        torque = self.I*duty_cycle
-        
-        if (w > 0):
-            w = min(w + self.dt*(torque - self.d*w),3)
-        elif (w < 0):
-            w = max(w + self.dt*(torque - self.d*w),-3)
-        else:
-            w = w + self.dt*(torque)
-        
-        return w
-
-    # Find the motor encoder measurement to determine how fast the wheel is turining
-    def motorEncoder(self):
-        pass
-    
-    # Velocity motion model
-    def baseVelocity(self,wl,wr):
-        v = (wl*self.r + wr*self.r)/2.0 #linear velocity
-        w = (wl*self.r - wr*self.r)/self.l #angular velocity
-        
-        return v, w
-    
-    # Kinematic motion model
-    def pose_update(self,duty_cycle_l,duty_cycle_r):
-        
-        # self.wl = self.motor_simulator(self.wl,duty_cycle_l)
-        # self.wr = self.motor_simulator(self.wr,duty_cycle_r)
-        
-        v, w = self.baseVelocity(self.wl,self.wr)
-        
-        self.x = self.x + self.dt*v*np.cos(self.th) # x = x + dt*v*cos(th)
-        self.y = self.y + self.dt*v*np.sin(self.th) # y = y + dt*v*sin(th)
-        self.th = self.th + w*self.dt # th = th + w*dt
-        
-        return self.x, self.y, self.th
     
     
-    def rotate(self, angle, speed=10):
+    def rotate(self, angle, velocity=10.0):
         """
-        Rotate `angle` degrees clockwise  
+        Rotate clockwise  
         
         Parameters
         ----
-        speed: rotational velocity in degrees per second
+        angle: Amount of rotation in degrees, can be negative. Should be in range (-180, +180)
+        veclocity: rotational velocity in degrees per second
         """
         # TODO: implement rotation
         ...
 
     
-    def translate(self, displacement):
+    def translate(self, displacement, velocity=1.0):
         """
-        Translate `displacement` meters in a straight line
+        Drive the robot in a straight line
+
+        Parameter
+        ----
+        displacement: Amount to drive in meters, can be negative
+        velocity: velocity in meters per second
         """
         # TODO: implement moving forward/backward in a straight line
         ...
@@ -94,12 +47,6 @@ class DiffDriveRobot:
             [np.cos(th_rad), -np.sin(th_rad)],
             [np.sin(th_rad), np.cos(th_rad)]
         ])
-    
-    def _getTranslationVector(self):
-        """
-        Get 2D translation vector from bot position
-        """
-        return np.array([self.x, self.y])
 
     def detect_ball(self):
         """
@@ -113,8 +60,37 @@ class DiffDriveRobot:
         ball_loc = camera.detect_ball(img)
 
         if ball_loc:
+            # apply homography
             relative_pos = self._H @ ball_loc
-            return self._getRotationMatrix() @ relative_pos + self._getTranslationVector()
+            # translate into world coordinates
+            return self._getRotationMatrix() @ relative_pos + self.pos
         else:
             return None
+    
+    def calculateRotationDelta(self, p):
+        """
+        Parameters
+        ----
+        p: np.array (x, y) coordinates
+
+        Return
+        ----
+        Rotation needed by bot in order to face p in degrees
+        """
+        delta = p - self.pos
+        return np.degrees(np.atan(delta[1]/delta[0])) - self.th
+    
+    def calculateDistance(self, p):
+        """
+        Parameters
+        ----
+        p: np.array (x, y) coordinates
+
+        Return
+        ----
+        Distance between bot and p
+        """
+        delta = p - self.pos
+        return np.sqrt(np.sum(delta ** 2))
+    
         
