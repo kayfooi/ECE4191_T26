@@ -20,6 +20,22 @@ def capture():
 
     return frame
 
+
+def detect_ball(img):
+    """
+    Detects tennis ball location in image coordinates
+
+    Parameters
+    ----
+    img: raw image of tennis court
+
+    Return
+    ----
+    position: image coordinate (u, v) of detected ball, can be None
+    """
+
+    return (100,100)
+
 if __name__ == "__main__":
     # Use to this test if the camera is working properly.
     img = capture()
