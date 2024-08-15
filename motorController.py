@@ -169,5 +169,4 @@ if __name__ == "__main__":
 
     # Go Backward
     motorControl(dTime = 5, direction = 3)
-
     
