@@ -15,16 +15,19 @@ Purely vision based for the moment
 """
 from robot import DiffDriveRobot
 import numpy as np
+import cv2
 
 if __name__ == "__main__":
-   init_pos = np.array([0,0])
+   init_pos = np.array([0.,0.])
    init_orientation = 0
    bot = DiffDriveRobot(init_pos, init_orientation)
-
+   
+   test_img = cv2.imread('./CV/test_imgs/blender/simple/test_0.jpg')
+   
    # 1. Identify and locate exactly 1 tennis ball
    detected = None
    while detected is None:
-      detected = bot.detect_ball() # scan environment
+      detected = bot.detect_ball(test_img) # scan environment
       if (detected is not None):
          # double check its a ball
          
@@ -33,7 +36,7 @@ if __name__ == "__main__":
          bot.rotate(rotation)
 
          # attempt to detect ball again
-         detected = bot.detect_ball()
+         detected = bot.detect_ball(test_img)
          if (detected is not None):
             rotation = bot.calculateRotationDelta(detected)
             if abs(rotation) < 5:
@@ -52,7 +55,7 @@ if __name__ == "__main__":
    # repeatedly halve distance and correct rotation until in close range of ball
    while distance > 0.8:
       bot.translate(distance / 2)
-      detected = bot.detect_ball()
+      detected = bot.detect_ball(test_img)
       rotation = bot.calculateRotationDelta(detected)
       distance = bot.calculateDistance(detected)
       # rotate if not on the right path
