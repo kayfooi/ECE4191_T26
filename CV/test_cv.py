@@ -13,8 +13,11 @@ import os
 # import detection algorithms here
 # expecting detection function to take img array and return 2D np array of detected ball image coordinates
 from camera import detect_ball_circularity_no_colour
+#from cv_alg_test import detect_tennis_ball
 
 CV_ALGS = [detect_ball_circularity_no_colour] # list of alg functions to test
+#CV_ALGS = [detect_tennis_ball] # list of alg functions to test
+
 
 IMGS_DIR = os.path.join('test_imgs', 'blender', 'oneball')
 CASE_DIR = os.path.join(IMGS_DIR, 'cases.json')
