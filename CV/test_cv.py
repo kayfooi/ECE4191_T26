@@ -13,12 +13,11 @@ import os
 # import detection algorithms here
 # expecting detection function to take img array and return 2D np array of detected ball image coordinates
 from camera import detect_ball_circularity_no_colour
-#from cv_alg_test import detect_tennis_ball
+from cv_alg_test import detect_tennis_ball
 
-CV_ALGS = [detect_ball_circularity_no_colour] # list of alg functions to test
-#CV_ALGS = [detect_tennis_ball] # list of alg functions to test
+CV_ALGS = [detect_ball_circularity_no_colour, detect_tennis_ball] # list of alg functions to test
 
-
+# Update path to relevant test set
 IMGS_DIR = os.path.join('test_imgs', 'blender', 'oneball')
 CASE_DIR = os.path.join(IMGS_DIR, 'cases.json')
 
@@ -58,20 +57,23 @@ def evaluate_detections(detected, true, distance_threshold=20.0):
     true_copy = true.copy()
 
     for det_point in detected:
-        # Calculate distances between the detected point and all true points
-        distances = np.linalg.norm(true_copy - det_point, axis=1)
-        
-        # Find the closest true point
-        min_distance_index = np.argmin(distances)
-        min_distance = distances[min_distance_index]
+        if len(true_copy) > 0:
+            # Calculate distances between the detected point and all true points
+            distances = np.linalg.norm(true_copy - det_point, axis=1)
+            
+            # Find the closest true point
+            min_distance_index = np.argmin(distances)
+            min_distance = distances[min_distance_index]
 
-        if min_distance <= distance_threshold:
-            # True positive
-            true_positives.append(det_point)
-            # Remove the matched true point to prevent multiple matches
-            true_copy = np.delete(true_copy, min_distance_index, axis=0)
+            if min_distance <= distance_threshold:
+                # True positive
+                true_positives.append(det_point)
+                # Remove the matched true point to prevent multiple matches
+                true_copy = np.delete(true_copy, min_distance_index, axis=0)
+            else:
+                # False positive
+                false_positives.append(det_point)
         else:
-            # False positive
             false_positives.append(det_point)
 
     # Remaining unmatched true points are false negatives
@@ -83,14 +85,14 @@ def evaluate_detections(detected, true, distance_threshold=20.0):
 
 if __name__ == "__main__":
     # Show each result with a cv2.imshow call
-    show_each_result = True
+    show_each_result = False
     show_each_result_scores = True
-
     results = {
         "algorithm":[],
         "avg. time (ms)":[],
-        "accuracy (%)": [], # true positives / (true positives + false negatives) Proportion of all balls correctly detected
-        "correctness (%)": [], # true positives / (true positives + false positives) Proportion of all detections that are actual balls
+        "balls detected (%)": [], # true positives / (true positives + false negatives) Proportion of all balls correctly detected
+        "detections that are balls (%)": [], # true positives / (true positives + false positives) Proportion of all detections that are actual balls
+        "errors": []
     }
 
     cases = {}
@@ -99,6 +101,7 @@ if __name__ == "__main__":
 
     # Run each algorithm on all test styles
     for i, alg in enumerate(CV_ALGS):
+        # show_each_result = i == 1
         print(f"\n---- Testing function: {alg.__name__} ----")
         results["algorithm"].append(alg.__name__)
         fns_alg = 0
@@ -106,6 +109,7 @@ if __name__ == "__main__":
         fps_alg = 0
         alg_time = 0.0
         alg_tests = 0 # number of tests
+        errors = 0
         for (j, style) in enumerate(TEST_STYLES.keys()):
             alg_tests += TEST_STYLES[style]
             fns_style = 0
@@ -116,7 +120,13 @@ if __name__ == "__main__":
                 print(f"\n    ---- Case: {k:04d} ----")
                 img = cv2.imread(os.path.join(IMGS_DIR, f'{style}{k:04d}.jpg'))
                 start_time = time.time()
-                det_uv = alg(img)
+                try:
+                    det_uv = alg(img)
+                except Exception as e:
+                    print(f"Failed {style}{k:04d}")
+                    print(e)
+                    errors += 1
+                    
                 end_time = time.time()
                 true_uv = np.array(list(map(lambda b: b["image"], cases[k]["balls"])))
                 tp, fp, fn = evaluate_detections(det_uv, true_uv)
@@ -162,15 +172,15 @@ if __name__ == "__main__":
         alg_time = alg_time / (fns_alg + tps_alg)*1e3
         print(f"accuracy:\t{tps_alg}/{fns_alg+tps_alg}\t{alg_acc : .2f}%")
         print(f"avg. time:\t{alg_time:.3f} msec")
-        results['accuracy (%)'].append(alg_acc)
+        results['balls detected (%)'].append(alg_acc)
         results['avg. time (ms)'].append(alg_time)
-        results["correctness (%)"].append(tps_alg / (tps_alg + fps_alg) * 100)
-    
+        try:
+            results["detections that are balls (%)"].append(tps_alg / (tps_alg + fps_alg) * 100)
+        except(ZeroDivisionError):
+            # zero positive detections
+            results["detections that are balls (%)"].append(0)
+        results["errors"].append(errors)
+
     print("\n\n ---- RESULTS SUMMARY ----")
     results = pd.DataFrame(data=results)
     print(results)
-            
-
-    
-
-

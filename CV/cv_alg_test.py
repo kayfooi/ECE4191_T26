@@ -10,18 +10,18 @@ def preprocess_image(image):
     
     return hsv
 
-def detect_tennis_ball(image_path):
+def detect_tennis_ball(image):
     # Load the image
-    image = cv2.imread(image_path)
+    # image = cv2.imread(image_path)
     if image is None:
         print("Error: Could not read the image.")
         return None
 
     # Resize the image for consistency
-    resized = cv2.resize(image, (600, 400))
+    # resized = cv2.resize(image, (600, 400))
 
     # Preprocess the image
-    hsv = preprocess_image(resized)
+    hsv = preprocess_image(image)
 
     # Define HSV range for the tennis ball (adjustable)
     greenLower = (30, 40, 40)
@@ -36,7 +36,7 @@ def detect_tennis_ball(image_path):
 
     # Find contours
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
+    results = []
     for contour in contours:
         # Calculate the circularity of the contour
         area = cv2.contourArea(contour)
@@ -53,16 +53,17 @@ def detect_tennis_ball(image_path):
                 M = cv2.moments(contour)
                 if M["m00"] > 0:
                     center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
-
+                    results.append(center)
                     # Draw the circle and centroid on the image
-                    cv2.circle(resized, (int(x), int(y)), int(radius), (0, 255, 255), 2)
-                    cv2.circle(resized, center, 5, (0, 0, 255), -1)
-                    print(f"Detected ball at center: {center}")
+                    # cv2.circle(resized, (int(x), int(y)), int(radius), (0, 255, 255), 2)
+                    # cv2.circle(resized, center, 5, (0, 0, 255), -1)
+                    # print(f"Detected ball at center: {center}")
 
     # Show the result
-    cv2.imshow("Detected Tennis Ball", resized)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    # cv2.imshow("Detected Tennis Ball", resized)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+    return np.array(results)
 
 # Example usage with your image:
 
