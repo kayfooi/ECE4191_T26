@@ -2,11 +2,18 @@ import numpy as np
 import CV.camera as camera
 import unittest
 import cv2
+import serial
+import time
 
 class DiffDriveRobot:
     def __init__(self,init_pos = np.array([0.0, 0.0]), init_th = 0):
         self.pos = init_pos
         self.th = init_th
+
+        # Connection to Arduino board
+        self.ser = serial.Serial('/dev/tty1', 9600, timeout=0.5)
+        self.ser.reset_input_buffer()
+
         # Homography that transforms image coordinates to world coordinates
         self._H = np.array([
             [1, 0, 0],
@@ -14,7 +21,37 @@ class DiffDriveRobot:
             [0, 0, 1]
         ])
     
-    
+    def _arduino_instruction(self, instruction):
+        """
+        Parameters
+        ---
+        instruction : str
+            Needs to be of the form 'R_90.0' to rotate 90.0 degrees clockwise for example, or 'T_1.29' to drive forward 1.29 m for example.
+            Values can be negative to go in the other direction.
+        """
+        
+        # Send instruction to Arduino
+        self.ser.write(instruction.encode("utf-8"))
+
+        # Wait for instruction to finish
+        max_time = 5.0 # timeout after this amount of seconds
+        sleep_time = 0.1 # wait this amount of seconds between checks
+        checks = 0
+        while checks < max_time / sleep_time:
+            if self.ser.in_waiting > 0:
+                line = self.ser.readline().decode('utf-8').rstrip()
+                try:
+                    part = line.split("_")
+                    value = float(part[1]) # amount the robot actually did
+                    print(f"Successfully complete {line} after {sleep_time*checks:.2f} sec")
+                    return value
+                except(ValueError, IndexError) as e:
+                    print(e)
+                    print(f"Received: '{line}' from Arduino, expecting '{instruction} complete'")
+                time.sleep(sleep_time)
+                checks += 1
+        return None
+
     def rotate(self, angle, velocity=10.0):
         """
         Rotate clockwise  
@@ -24,10 +61,17 @@ class DiffDriveRobot:
         angle: Amount of rotation in degrees, can be negative. Should be in range (-180, +180)
         veclocity: rotational velocity in degrees per second
         """
-        # TODO: implement rotation by interfacing with auduino
+
+        # TODO: implement velocity
+        # Send rotation instruction
+        instruction = f"R_{angle:.2f}"
+        rotation = self._arduino_instruction(instruction)
         
-        # simulate perfect operation
-        self.th += angle
+        # Stop the robot if big error for now
+        assert abs(rotation - angle) < 5.0, "Rotation error too large. Aborting!"
+
+        # Update State on PI
+        self.th += rotation
 
     
     def translate(self, displacement, velocity=1.0):
@@ -39,13 +83,20 @@ class DiffDriveRobot:
         displacement: Amount to drive in meters, can be negative
         velocity: velocity in meters per second
         """
-        # TODO: implement moving forward/backward in a straight line
+        # TODO: implement velocity
         
-        # simulate perfect operation
+        # Send translation instruction
+        instruction = f"T_{displacement:.2f}"
+        actual_displacement = self._arduino_instruction(instruction)
+        
+        # Stop the robot if big error for now
+        assert abs(actual_displacement - displacement) < 0.1, "Translation error too large. Aborting!"
+
+        # Update state on PI
         th_rad = np.radians(self.th)
         self.pos += np.array([
-            displacement * np.cos(th_rad),
-            displacement * np.sin(th_rad)
+            actual_displacement * np.cos(th_rad),
+            actual_displacement * np.sin(th_rad)
         ])
 
     
