@@ -14,18 +14,16 @@ import os
 # expecting detection function to take img array and return 2D np array of detected ball image coordinates
 from camera import detect_ball_circularity_no_colour
 from cv_alg_test import detect_tennis_ball
-
-CV_ALGS = [detect_ball_circularity_no_colour, detect_tennis_ball] # list of alg functions to test
+from cv_alg_test import detect_ball_circularity_colour
+CV_ALGS = [detect_ball_circularity_no_colour, detect_tennis_ball, detect_ball_circularity_colour] # list of alg functions to test
 
 # Update path to relevant test set
-IMGS_DIR = os.path.join('test_imgs', 'blender', 'oneball')
+IMGS_DIR = os.path.join('test_imgs', 'test_images')
 CASE_DIR = os.path.join(IMGS_DIR, 'cases.json')
 
 # Define style names and number of tests to run from each (must match file names in test_img folder)
 TEST_STYLES = {
-    'normal': 10,
-    'shadow': 10,
-    'motion_blur':10
+    'testing':194
 }
 
 def evaluate_detections(detected, true, distance_threshold=20.0):
@@ -130,9 +128,9 @@ if __name__ == "__main__":
                 end_time = time.time()
                 true_uv = np.array(list(map(lambda b: b["image"], cases[k]["balls"])))
                 tp, fp, fn = evaluate_detections(det_uv, true_uv)
-                tp_text = f"True positives:\t{len(tp)}/{len(true_uv)}\t{len(tp)/len(true_uv) * 100 : .2f}%"
+                tp_text = f"True positives:\t{len(tp)}/{len(true_uv)}\t{len(tp)/(len(true_uv)+0.001) * 100 : .2f}%"
                 fp_text = f"False positives:\t{len(fp)}"
-                fn_text = f"False negatives:\t{len(fn)}/{len(true_uv)}\t{len(fn)/len(true_uv) * 100 : .2f}%"
+                fn_text = f"False negatives:\t{len(fn)}/{len(true_uv)}\t{len(fn)/(len(true_uv)+0.001) * 100 : .2f}%"
                 print(f"    {tp_text}")
                 print(f"    {fn_text}")
                 print(f"    {fp_text}")
