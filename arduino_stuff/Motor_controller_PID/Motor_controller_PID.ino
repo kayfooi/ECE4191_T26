@@ -5,7 +5,7 @@
 #define PWM2 6
 
 // Define pin numbers for encoders
-#define encoder1Pin 2
+#define encoder1Pin 44
 #define encoder2Pin 3
 
 // Variables for encoder counts
@@ -19,7 +19,7 @@ float eIntegral = 0;
 
 void setup() {
   
-  Serial.begin(9600)
+  Serial.begin(9600);
 
   // Set pin modes
   pinMode(DIR1, OUTPUT);
@@ -37,6 +37,7 @@ void setup() {
 
 void loop() {
   // Set desired setpoint for motor 2
+  int target = encoder1Count;
 
   // Move motor 1
   digitalWrite(DIR1, 1);
@@ -49,7 +50,7 @@ void loop() {
   float u = pidController(target, kp, kd, ki);
 
   // Control motor 2 based on PID
-  MoveMotor(DIR2, PWM2, u);
+  moveMotor(DIR2, PWM2, u);
 
   // Print statements for debugging
   Serial.print(encoder1Count);
@@ -85,11 +86,11 @@ void moveMotor(int dirPin, int pwmPin, float u) {
 
 float pidController(int target, float kp, float kd, float ki) {
   // Measure the time elapsed since the last iteration
-  long CurrentTime = micros();
+  long currentTime = micros();
   float deltaT = ((float)(currentTime - previousTime))/1.0e6;
 
   // Compute the error, derivative and integral
-  int e = encoderCount - target;
+  int e = encoder2Count - target;
   float eDerivative = (e - ePrevious)/deltaT;
   eIntegral = eIntegral + e*deltaT;
 
