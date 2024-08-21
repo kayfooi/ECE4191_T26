@@ -1,41 +1,34 @@
-bool received = false;
-String buffer;
+const int ledPin = 13;  // pin number with built-in LED
 
 void setup() {
     Serial.begin(9600); // baud rate must align with RPi
+    pinMode(ledPin, OUTPUT);
+    digitalWrite(ledPin, HIGH);
 }
 
 void loop() {
-    // Send stuff to the PI
-    Serial.println("Hello RPi, from Arduino");
-    bool received;
-
-    if (received) {
+    // Recevie stuff from the PI
+    if (Serial.available()) {
+        String buffer = Serial.readStringUntil('\n');
+        // Serial.print("Arduino received: ");
+        // Serial.println(buffer);
         // Read instruction values
         char instruction;
-        float value;
-        sscanf(buffer, "%c_%.2f", &instruction, &value);
-
+        int value_int;
+        int value_decimal;
+        sscanf(buffer.c_str(), "%c_%d.%d", &instruction, &value_int, &value_decimal);
+        float value = value_int + (value_decimal / 1000.0);
+        digitalWrite(ledPin, LOW);
         // TODO: implement instruction
-        delay(150)
-        
+        delay(1000);
+        digitalWrite(ledPin, HIGH);
         // Return successful message (or error msg of some kind)
         Serial.print(instruction);
         Serial.print("_");
-        Serial.print(value, 2);
+        Serial.print(value, 3);
         Serial.println("_COMPLETE");
-        
     }
 
-    received = false
-    String buffer;
-    // Recevie stuff from the PI
-    if (Serial.available() > 0) {
-        buffer = Serial.readStringUntil('\n');
-        Serial.print("Arduino received: ")
-        Serial.println(buffer);
-        received = true
-    }
-
-    delay(350);
+    Serial.println("LOOP");
+    delay(1000);
 }
