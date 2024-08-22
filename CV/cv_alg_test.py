@@ -98,12 +98,12 @@ def detect_ball_circularity_colour(frame):
         M = cv2.moments(c)
         if M["m00"] > 0:  # avoid division by zero
             # only proceed if the radius meets a minimum size
-            if radius > 5:
+            if radius > 7:
                 center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
                 # update the points queue
                 pts.appendleft(center)
                 # output the center of the ball (x, y) coordinates
-                # print(f"Center: {center}")
+                # print(f"Center: {center}")7
 
 
     
@@ -111,3 +111,53 @@ def detect_ball_circularity_colour(frame):
 
 
 #detect_tennis_ball(r'Test\test0.png')
+
+
+def detect_optimized_tennis_ball(frame):
+    """
+    Detects tennis balls using a combination of color filtering and circularity checks.
+    
+    :param frame: Input image/frame (BGR format).
+    :return: A list of detected ball centers (x, y coordinates).
+    """
+    # Define HSV range for tennis ball detection (tuned for green-yellow color)
+    green_lower = (30, 40, 40)
+    green_upper = (85, 255, 255)
+    
+    # Preprocess the frame
+    blurred = cv2.GaussianBlur(frame, (11, 11), 0)
+    hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
+    
+    # Create a mask for the tennis ball color
+    mask = cv2.inRange(hsv, green_lower, green_upper)
+    
+    # Perform morphological operations to clean up the mask
+    mask = cv2.erode(mask, None, iterations=2)
+    mask = cv2.dilate(mask, None, iterations=2)
+    
+    # Find contours in the mask
+    contours, _ = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    centers = []
+    
+    for contour in contours:
+        # Calculate the circularity of the contour
+        area = cv2.contourArea(contour)
+        perimeter = cv2.arcLength(contour, True)
+        
+        if perimeter == 0:
+            continue
+        
+        # Calculate circularity to check if it’s close to a circle
+        circularity = 4 * np.pi * (area / (perimeter ** 2))
+        
+        # Apply circularity and size filtering
+        if 0.8 < circularity < 1.2 and area > 30:  # Tuning for roundness and size
+            # Compute the minimum enclosing circle and centroid
+            ((x, y), radius) = cv2.minEnclosingCircle(contour)
+            if radius > 7:  # Filter small objects
+                M = cv2.moments(contour)
+                if M["m00"] > 0:  # Avoid division by zero
+                    center = (int(M["m10"] / M["m00"]), radius + int(M["m01"] / M["m00"]))
+                    centers.append(center)
+
+    return np.array(centers).astype(int)

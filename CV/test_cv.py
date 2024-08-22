@@ -15,7 +15,10 @@ import os
 from camera import detect_ball_circularity_no_colour
 from cv_alg_test import detect_tennis_ball
 from cv_alg_test import detect_ball_circularity_colour
-CV_ALGS = [detect_ball_circularity_no_colour, detect_tennis_ball, detect_ball_circularity_colour] # list of alg functions to test
+from cv_alg_test import detect_optimized_tennis_ball
+from ai import detect_yolo_centers
+CV_ALGS = [detect_ball_circularity_no_colour, detect_tennis_ball, detect_ball_circularity_colour, detect_optimized_tennis_ball,detect_yolo_centers] # list of alg functions to test
+#CV_ALGS = [detect_yolo_centers] # list of alg functions to test
 
 # Update path to relevant test set
 IMGS_DIR = os.path.join('test_imgs', 'test_images')
@@ -26,7 +29,7 @@ TEST_STYLES = {
     'testing':194
 }
 
-def evaluate_detections(detected, true, distance_threshold=20.0):
+def evaluate_detections(detected, true, distance_threshold=50.0):
     """
     Parameters
     ---
@@ -84,7 +87,7 @@ def evaluate_detections(detected, true, distance_threshold=20.0):
 if __name__ == "__main__":
     # Show each result with a cv2.imshow call
     show_each_result = False
-    show_each_result_scores = True
+    show_each_result_scores = False
     results = {
         "algorithm":[],
         "avg. time (ms)":[],
