@@ -70,7 +70,7 @@ class ImageLabeler:
     def save_current_image(self):
         image_name = self.image_files[self.current_image_index]
         case_number = f"{self.current_image_index:04d}"
-        new_name = f"testing{case_number}.jpg"
+        new_name = f"real{case_number}.jpg"
         
         old_path = os.path.join(self.folder_path, image_name)
         new_path = os.path.join(self.folder_path, new_name)

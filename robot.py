@@ -13,6 +13,8 @@ class DiffDriveRobot:
         # Connection to Arduino board
         self.ser = serial.Serial('/dev/tty1', 9600, timeout=0.5)
         self.ser.reset_input_buffer()
+        
+        time.sleep(1.5) # important sleep to allow serial communication to initialise
 
         # Homography that transforms image coordinates to world coordinates
         self._H = np.array([
@@ -54,7 +56,7 @@ class DiffDriveRobot:
 
     def rotate(self, angle, velocity=10.0):
         """
-        Rotate clockwise  
+        Rotate the robot on the spot. (anti-clockwise direction is positive)  
         
         Parameters
         ----
@@ -67,11 +69,12 @@ class DiffDriveRobot:
         instruction = f"R_{angle:.2f}"
         rotation = self._arduino_instruction(instruction)
         
-        # Stop the robot if big error for now
-        assert abs(rotation - angle) < 5.0, "Rotation error too large. Aborting!"
+        if rotation is not None:
+            # Stop the robot if big error for now
+            assert abs(rotation - angle) < 5.0, "Rotation error too large. Aborting!"
 
-        # Update State on PI
-        self.th += rotation
+            # Update State on PI
+            self.th += rotation
 
     
     def translate(self, displacement, velocity=1.0):

@@ -10,17 +10,34 @@ void loop() {
     // Recevie stuff from the PI
     if (Serial.available()) {
         String buffer = Serial.readStringUntil('\n');
-        // Serial.print("Arduino received: ");
-        // Serial.println(buffer);
         // Read instruction values
-        char instruction;
+        char instruction; // either R for rotation or T for translation
         int value_int;
         int value_decimal;
         sscanf(buffer.c_str(), "%c_%d.%d", &instruction, &value_int, &value_decimal);
+        
+        // Amount to rotate or translate
         float value = value_int + (value_decimal / 1000.0);
         digitalWrite(ledPin, LOW);
-        // TODO: implement instruction
-        delay(1000);
+        
+        switch (instruction) {
+            case 'R':
+                // TODO: Rotate `value` degrees anti-clockwise
+                // Note that value can be negative
+                break;
+            case 'T':
+                // TODO: Translate `value` meters forward
+                // Note that value can be negative
+                break;
+            default:
+                Serial.print("Invalid instruction ");
+                Serial.println(instruction);
+                break;
+            }
+
+
+        delay(100);
+        
         digitalWrite(ledPin, HIGH);
         // Return successful message (or error msg of some kind)
         Serial.print(instruction);
