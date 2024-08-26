@@ -20,9 +20,29 @@
 - Various lighting / shadow conditions
 - Various amouts of noise / motion blur
 
+#### Testing
+- Put all images in a test set in a single folder
+- If you want to automatically test accuracy, create a cases.json file with the structure:
+- [
+    {
+      "caseID": str,
+      "cam_heading": int,
+      "cam_location": [x,y,z],
+      "balls": [{
+          "ball_id": str,
+          "world": [x,y,z],
+          "image": [u,v],
+          "in_bounds": bool
+      }]
+    }
+  ]
+- *^^ [image_labeller.py](test_imgs/image_labeller.py) can do this for you*
+- Import ball detections algorithms in [test_cv.py](test_cv.py)
+- Run test_cv (make sure you are in CV folder)
+
 #### TODO
 - [x] Geometry
 - [ ] Tennis ball identification
-- [ ] Test case generation
+- [x] Test case generation
 
 

@@ -1,58 +1,220 @@
 import numpy as np
+import CV.camera as camera
+import unittest
+import cv2
+import serial
+import time
 
 class DiffDriveRobot:
-    # Based off code provided in ECE4191 Github file called Robot_navigation_and_control.ipynb
-    def __init__(self,inertia=5, dt=0.1, drag=0.2, wheel_radius=0.05, wheel_sep=0.15):
-        
-        self.x = 0.0 # y-position
-        self.y = 0.0 # y-position 
-        self.th = 0.0 # orientation
-        
-        self.wl = 0.0 #rotational velocity left wheel
-        self.wr = 0.0 #rotational velocity right wheel
-        
-        self.I = inertia
-        self.d = drag
-        self.dt = dt
-        
-        self.r = wheel_radius
-        self.l = wheel_sep
+    def __init__(self,init_pos = np.array([0.0, 0.0]), init_th = 0):
+        self.pos = init_pos
+        self.th = init_th
 
-    # Here, we simulate the real system and measurement
-    def motor_simulator(self,w,duty_cycle):
+        # Connection to Arduino board
+        self.ser = serial.Serial('/dev/tty1', 9600, timeout=0.5)
+        self.ser.reset_input_buffer()
         
-        torque = self.I*duty_cycle
+        time.sleep(1.5) # important sleep to allow serial communication to initialise
+
+        # Homography that transforms image coordinates to world coordinates
+        self._H = np.array([
+            [1, 0, 0],
+            [0, 1, 0],
+            [0, 0, 1]
+        ])
+    
+    def _arduino_instruction(self, instruction):
+        """
+        Parameters
+        ---
+        instruction : str
+            Needs to be of the form 'R_90.0' to rotate 90.0 degrees clockwise for example, or 'T_1.29' to drive forward 1.29 m for example.
+            Values can be negative to go in the other direction.
+        """
         
-        if (w > 0):
-            w = min(w + self.dt*(torque - self.d*w),3)
-        elif (w < 0):
-            w = max(w + self.dt*(torque - self.d*w),-3)
+        # Send instruction to Arduino
+        self.ser.write(instruction.encode("utf-8"))
+
+        # Wait for instruction to finish
+        max_time = 5.0 # timeout after this amount of seconds
+        sleep_time = 0.1 # wait this amount of seconds between checks
+        checks = 0
+        while checks < max_time / sleep_time:
+            if self.ser.in_waiting > 0:
+                line = self.ser.readline().decode('utf-8').rstrip()
+                try:
+                    part = line.split("_")
+                    value = float(part[1]) # amount the robot actually did
+                    print(f"Successfully complete {line} after {sleep_time*checks:.2f} sec")
+                    return value
+                except(ValueError, IndexError) as e:
+                    print(e)
+                    print(f"Received: '{line}' from Arduino, expecting '{instruction} complete'")
+                time.sleep(sleep_time)
+                checks += 1
+        return None
+
+    def rotate(self, angle, velocity=10.0):
+        """
+        Rotate the robot on the spot. (anti-clockwise direction is positive)  
+        
+        Parameters
+        ----
+        angle: Amount of rotation in degrees, can be negative. Should be in range (-180, +180)
+        veclocity: rotational velocity in degrees per second
+        """
+
+        # TODO: implement velocity
+        # Send rotation instruction
+        instruction = f"R_{angle:.2f}"
+        rotation = self._arduino_instruction(instruction)
+        
+        if rotation is not None:
+            # Stop the robot if big error for now
+            assert abs(rotation - angle) < 5.0, "Rotation error too large. Aborting!"
+
+            # Update State on PI
+            self.th += rotation
+
+    
+    def translate(self, displacement, velocity=1.0):
+        """
+        Drive the robot in a straight line
+
+        Parameter
+        ----
+        displacement: Amount to drive in meters, can be negative
+        velocity: velocity in meters per second
+        """
+        # TODO: implement velocity
+        
+        # Send translation instruction
+        instruction = f"T_{displacement:.2f}"
+        actual_displacement = self._arduino_instruction(instruction)
+        
+        # Stop the robot if big error for now
+        assert abs(actual_displacement - displacement) < 0.1, "Translation error too large. Aborting!"
+
+        # Update state on PI
+        th_rad = np.radians(self.th)
+        self.pos += np.array([
+            actual_displacement * np.cos(th_rad),
+            actual_displacement * np.sin(th_rad)
+        ])
+
+    
+    def _getRotationMatrix(self):
+        """
+        Get 2D rotation matrix from bot orientation
+        """
+        th_rad = np.radians(self.th)
+        return np.array([
+            [np.cos(th_rad), -np.sin(th_rad)],
+            [np.sin(th_rad), np.cos(th_rad)]
+        ])
+
+    def detect_ball(self, img=None):
+        """
+        Captures Image and detects tennis ball locations in world coordinates
+
+        Parameters:
+        img: np array representing image
+
+        Return
+        ----
+        position: world coordinates (x, y) of detected ball, can be None
+        """
+        if img is None:
+            # capture from camera
+            img = camera.capture()
+            
+
+        ball_loc = np.array(camera.detect_ball(img))
+
+        if ball_loc is not None:
+            # apply homography
+            relative_pos = self._H @ np.append(ball_loc, [1])
+            # translate into world coordinates
+            return self._getRotationMatrix() @ relative_pos[:2] + self.pos
         else:
-            w = w + self.dt*(torque)
-        
-        return w
+            return True # None (change once detection is added)
+    
+    def calculateRotationDelta(self, p):
+        """
+        Parameters
+        ----
+        p: np.array (x, y) coordinates
 
-    # Find the motor encoder measurement to determine how fast the wheel is turining
-    def motorEncoder(self):
-        pass
+        Return
+        ----
+        Rotation needed by bot in order to face p in degrees
+        """
+        delta = p - self.pos
+        r = (np.degrees(np.arctan2(delta[1], delta[0])) - self.th)
+        if r < -180:
+            return r + 360
+        if r > 180:
+            return r - 360
+        else:
+            return r
     
-    # Velocity motion model
-    def baseVelocity(self,wl,wr):
-        v = (wl*self.r + wr*self.r)/2.0 #linear velocity
-        w = (wl*self.r - wr*self.r)/self.l #angular velocity
-        
-        return v, w
+    def calculateDistance(self, p):
+        """
+        Parameters
+        ----
+        p: np.array (x, y) coordinates
+
+        Return
+        ----
+        Distance between bot and p
+        """
+        delta = p - self.pos
+        return np.sqrt(np.sum(delta ** 2))
     
-    # Kinematic motion model
-    def pose_update(self,duty_cycle_l,duty_cycle_r):
+
+
+
+class TestBot(unittest.TestCase):
+    def setUp(self):
+        self.init_pos = np.array([0., 0.])
+        self.init_th = 0
+        self.bot = DiffDriveRobot(self.init_pos.copy(), 0)
+
+    def test_translation(self):
+        self.pos = self.init_pos.copy()
+        self.bot.translate(1.5)
+        np.testing.assert_allclose(self.bot.pos, np.array([1.5, 0.]))
+    
+    def test_rotation(self):
+        self.bot.th = 0
+        rotation = 90
+        self.bot.rotate(rotation)
+        self.assertEqual(self.bot.th, rotation)
+    
+    def test_rotation_translation(self):
+        self.pos = self.init_pos.copy()
+        self.bot.th = 0
+        rotation = 45
+        self.bot.rotate(rotation)
+        distance = np.sqrt(2)
+        self.bot.translate(distance)
+        np.testing.assert_allclose(self.bot.pos, np.array([1., 1.]))
+
+        self.assertAlmostEqual(self.bot.calculateDistance(self.init_pos), distance)
+        self.assertAlmostEqual(abs(self.bot.calculateRotationDelta(self.init_pos)), 180)
+
+    def test_ball_detection(self):
+        # TODO: load in test images, assert output is sensible from bot.detect_ball
+        ...
+    
+    def test_rotation_matrix(self):
+        point = np.sqrt(np.array([2, 2]))
+        self.bot.th = 45
+        # Rotates points from camera coordinates to world coordinates
+        R = self.bot._getRotationMatrix()
+        np.testing.assert_allclose(R @ point, np.array([0., 2.]), atol=1e-7)
+        # self.bot.
         
-        # self.wl = self.motor_simulator(self.wl,duty_cycle_l)
-        # self.wr = self.motor_simulator(self.wr,duty_cycle_r)
-        
-        v, w = self.baseVelocity(self.wl,self.wr)
-        
-        self.x = self.x + self.dt*v*np.cos(self.th) # x = x + dt*v*cos(th)
-        self.y = self.y + self.dt*v*np.sin(self.th) # y = y + dt*v*sin(th)
-        self.th = self.th + w*self.dt # th = th + w*dt
-        
-        return self.x, self.y, self.th
+
+if __name__ == '__main__':
+    unittest.main()
