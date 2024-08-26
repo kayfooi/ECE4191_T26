@@ -1,3 +1,6 @@
+// define constants
+#define PI 3.1415926535897932384626433832795;
+
 // define speed and direction pins for motors
 // Might need PWM pins for speed
 // Pins 2-13 and 44-46
@@ -46,20 +49,26 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
+  
+  // TEST
+  MoveStraight(1, 1, 0.1);
+
+  // spin both motors forward
   /*
-  digitalWrite(motor1dir, HIGH);
-  digitalWrite(motor1speed, LOW);
-  digitalWrite(motor2dir, HIGH);
-  digitalWrite(motor2speed, LOW);
+  digitalWrite(motorRightdir, LOW);
+  digitalWrite(motorRightspeed, 0);
+  digitalWrite(motorLeftdir, LOW);
+  digitalWrite(motorLeftspeed, 0);
   delay(1000);
+  /*
 
-  digitalWrite(motor1dir, LOW);
-  digitalWrite(motor1speed, HIGH);
-  digitalWrite(motor2dir, LOW);
-  digitalWrite(motor2speed, HIGH);
-  delay(1000);
-  */
-
+  //digitalWrite(motorRightdir, LOW);
+  //digitalWrite(motorRightspeed, HIGH);
+  //digitalWrite(motorLeftdir, LOW);
+  //digitalWrite(motorLeftspeed, HIGH);
+  //delay(1000);
+  
+/*
   // Set desired setpoint for motor 2
   int target = encoderRightCount;
 
@@ -79,16 +88,21 @@ void loop() {
   // Control motor 2 based on PID
   moveMotor(motorLeftdir, motorLeftspeed, u);
 
+*/
+
   // Print statements for debugging
   Serial.print(encoderRightCount);
   Serial.print(", ");
   Serial.println(encoderLeftCount);
-  delay(3000);
+  delay(1000);
 
+/*
   analogWrite(motorRightspeed, 0);
   analogWrite(motorLeftspeed, 0);
 
   while (true);
+
+  */
 
 
 }
@@ -136,4 +150,49 @@ float pidController(int target, float kp, float kd, float ki) {
   ePrevious = e;
 
   return u;
+}
+
+
+// Distance to encoder count translation function (helper function)
+int DistanceToEncoderCount(float distance) {
+
+  // define number of encoder counts per rotation
+  int constant_count = 900;
+  // define wheel diameter
+  int diameter = 54/1000; // [m] = [mm/1000]
+  // distance travelled by wheel in one rotation
+  float dist_per_rotation = diameter*PI;  // [m]
+  // distance travelled per encoder count
+  float dist_per_count = dist_per_rotation/constant_count;
+
+  // encoder counts required to travel specified distance
+  float encoder_counts_req = distance/dist_per_count;
+
+  return round(encoder_counts_req);
+
+}
+
+// Straight line movement function
+void MoveStraight(int direction, int speed, float distance) {
+  
+  // set motor rotation direction
+  // 1 indicates forward, 0 indicates reverse
+  if (direction == 1) {
+    digitalWrite(motorRightdir, LOW);
+    digitalWrite(motorLeftdir, LOW);
+  }
+  if (direction == 0) {
+    digitalWrite(motorRightdir, HIGH);
+    digitalWrite(motorLeftdir, HIGH);
+  }
+  
+  // call function to determine encoder counts required
+  int dist_travelled = DistanceToEncoderCount(distance);
+  // move motors while encoder count is less than this value
+  while (encoderRightCount < dist_travelled) {
+    // rotate motors at maximum speed
+    digitalWrite(motorRightspeed, speed);
+    digitalWrite(motorLeftspeed, speed);
+  }
+
 }
