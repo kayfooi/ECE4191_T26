@@ -5,10 +5,10 @@
 // Might need PWM pins for speed
 // Pins 2-13 and 44-46
 // NAME THESE MOTORS LEFT AND RIGHT EVENTUALLY
-int motorRightdir = 30;
-int motorRightspeed = 4;
-int motorLeftdir = 31;
-int motorLeftspeed = 5;
+int motorRightA = 30;
+int motorRightB = 4;
+int motorLeftA = 31;
+int motorLeftB = 5;
 
 // define encoder pins for motors
 // Interrupt pins are 2-3 and 18-21
@@ -31,10 +31,10 @@ void setup() {
   Serial.begin(9600);
   Serial.println("serial test");
 
-  pinMode(motorRightdir, OUTPUT);
-  pinMode(motorRightspeed, OUTPUT);
-  pinMode(motorLeftdir, OUTPUT);
-  pinMode(motorLeftspeed, OUTPUT);
+  pinMode(motorRightA, OUTPUT);
+  pinMode(motorRightB, OUTPUT);
+  pinMode(motorLeftA, OUTPUT);
+  pinMode(motorLeftB, OUTPUT);
   pinMode(encoderRight, INPUT);
   pinMode(encoderRightin, INPUT);
   pinMode(encoderLeft, INPUT);
@@ -51,7 +51,53 @@ void loop() {
   // put your main code here, to run repeatedly:
   
   // TEST
-  MoveStraight(1, 1, 0.1);
+
+
+  MoveStraight(1);
+  delay(10000);
+  MoveStraight(-1);
+  delay(10000);
+
+
+/*
+  MoveRotate(1);
+  delay(10000);
+  MoveRotate(-1);
+  delay(10000);
+  MoveStraight(0);
+  delay(300000);
+*/
+
+
+  /*
+  digitalWrite(motorRightdir, HIGH);
+  digitalWrite(motorRightspeed, HIGH);
+  digitalWrite(motorLeftdir, HIGH);
+  digitalWrite(motorLeftspeed, HIGH);
+  delay(3000);
+  */
+
+  // right motor reverse
+  //digitalWrite(motorRightA, HIGH);
+  //digitalWrite(motorRightB, LOW);
+  // right motor forward
+  //digitalWrite(motorRightA, LOW);
+  //digitalWrite(motorRightB, HIGH);
+
+  // left motor reverse
+  //digitalWrite(motorLeftA, HIGH);
+  //digitalWrite(motorLeftB, LOW);
+  // left motor forward
+  //digitalWrite(motorLeftA, LOW);
+  //digitalWrite(motorLeftB, HIGH);
+
+  /*
+  // move forward
+  digitalWrite(motorRightA, LOW);
+  digitalWrite(motorRightB, HIGH);
+  digitalWrite(motorLeftA, LOW);
+  digitalWrite(motorLeftB, HIGH);
+  */
 
   // spin both motors forward
   /*
@@ -172,18 +218,26 @@ int DistanceToEncoderCount(float distance) {
 
 }
 
+/*
 // Straight line movement function
-void MoveStraight(int direction, int speed, float distance) {
+void MoveStraight(int direction, float distance) {
   
+  if (direction == 0) {
+    digitalWrite(motorRightA, LOW);
+    digitalWrite(motorRightA, LOW);
+    digitalWrite(motorLeftA, LOW);
+    digitalWrite(motorLeftA, LOW);
+  }
+
   // set motor rotation direction
   // 1 indicates forward, 0 indicates reverse
   if (direction == 1) {
-    digitalWrite(motorRightdir, LOW);
-    digitalWrite(motorLeftdir, LOW);
+    digitalWrite(motorRightA, LOW);
+    digitalWrite(motorLeftA, LOW);
   }
   if (direction == 0) {
-    digitalWrite(motorRightdir, HIGH);
-    digitalWrite(motorLeftdir, HIGH);
+    digitalWrite(motorRightA, HIGH);
+    digitalWrite(motorLeftA, HIGH);
   }
   
   // call function to determine encoder counts required
@@ -191,8 +245,63 @@ void MoveStraight(int direction, int speed, float distance) {
   // move motors while encoder count is less than this value
   while (encoderRightCount < dist_travelled) {
     // rotate motors at maximum speed
-    digitalWrite(motorRightspeed, speed);
-    digitalWrite(motorLeftspeed, speed);
+    digitalWrite(motorRightA, );
+    digitalWrite(motorLeftA, );
   }
 
+}
+*/
+
+void MoveStraight(int direction) {
+  
+  // set motor rotation direction
+  // 1 indicates forward, -1 indicates reverse, 0 indicates stop
+  if (direction == 1) {
+    digitalWrite(motorRightA, LOW);
+    digitalWrite(motorRightB, HIGH);
+    digitalWrite(motorLeftA, LOW);
+    digitalWrite(motorLeftB, HIGH);
+  }
+  if (direction == -1) {
+    digitalWrite(motorRightA, HIGH);
+    digitalWrite(motorRightB, LOW);
+    digitalWrite(motorLeftA, HIGH);
+    digitalWrite(motorLeftB, LOW);
+  }
+
+   if (direction == 0) {
+    digitalWrite(motorRightA, LOW);
+    digitalWrite(motorRightB, LOW);
+    digitalWrite(motorLeftA, LOW);
+    digitalWrite(motorLeftB, LOW);
+  }
+ 
+  /*
+  // call function to determine encoder counts required
+  int dist_travelled = DistanceToEncoderCount(distance);
+  // move motors while encoder count is less than this value
+  while (encoderRightCount < dist_travelled) {
+    // rotate motors at maximum speed
+    digitalWrite(motorRightB, speed);
+    digitalWrite(motorLeftB, speed);
+  }
+  */
+
+}
+
+void MoveRotate(int direction) {
+
+  // direction = 1 = clockwise, direction = -1 = anticlockwise
+  if (direction == 1) {
+    digitalWrite(motorRightA, HIGH);
+    digitalWrite(motorRightB, LOW);
+    digitalWrite(motorLeftA, LOW);
+    digitalWrite(motorLeftB, HIGH);
+  }
+  if (direction == -1) {
+    digitalWrite(motorRightA, LOW);
+    digitalWrite(motorRightB, HIGH);
+    digitalWrite(motorLeftA, HIGH);
+    digitalWrite(motorLeftB, LOW);
+  }
 }
