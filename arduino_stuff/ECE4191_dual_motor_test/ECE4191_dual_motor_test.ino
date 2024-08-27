@@ -286,6 +286,32 @@ void decodeSerial(String serialInput){
 
 // functions for ultrasonic
 
+void ReadCm() {
+  u_Cms = millis();
+  if (u_Cms > u_Pms + u_wait) {
+
+  
+  // Clears trigger pins
+  for (uint8_t j = 0; j < SONAR_NUM; j++){
+    digitalWrite(trigPins[j], LOW);
+  }
+  delayMicroseconds(2);
+
+  // Gets distance from sensors
+  int d_left = (sonar[0].ping_cm())*10;
+  int d_mid = (sonar[1].ping_cm())*10;
+  int d_right = (sonar[2].ping_cm())*10;
+
+  u_Pms = u_Cms;
+  }
+};
+
 // 1 - rotate until ball found
+void rotateUntilBallFound(){
+  // read all 3 sensors
+  
+  // if ball detected in side sensor, rotate until middle sensor is closest to ball
+  // call function 2 
+}
 // 2 - go forward until ball is within certain distance
 // 3 - make correctional movements to ensure ball is closest to middle sensor 
