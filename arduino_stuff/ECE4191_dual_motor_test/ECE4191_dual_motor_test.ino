@@ -1,14 +1,16 @@
 // define constants
-#define PI 3.1415926535897932384626433832795;
+#define PI 3.1415926535897932384626433832795
+
+void decodeSerial(String serialInput);
 
 // define speed and direction pins for motors
 // Might need PWM pins for speed
 // Pins 2-13 and 44-46
 // NAME THESE MOTORS LEFT AND RIGHT EVENTUALLY
-int motorRightA = 47;
-int motorRightB = 46;
-int motorLeftA = 49;
-int motorLeftB = 48;
+int motorRightA = 35;
+int motorRightB = 34;
+int motorLeftA = 37;
+int motorLeftB = 36;
 
 // define encoder pins for motors
 // Interrupt pins are 2-3 and 18-21
@@ -26,11 +28,12 @@ long previousTime = 0;
 float ePrevious = 0;
 float eIntegral = 0;
 
+String serialInput;
+
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
   Serial.println("serial test");
-
   pinMode(motorRightA, OUTPUT);
   pinMode(motorRightB, OUTPUT);
   pinMode(motorLeftA, OUTPUT);
@@ -50,10 +53,14 @@ void setup() {
 
 void loop() {
 //  // put your main code here, to run repeatedly:
-  if (Serial.available() > 0 ) {
-    String input = Serial.readStringUntil('\n')
-  }
-  
+
+//          Test when connected to RPI
+//  if (Serial.available() > 0 ) {
+//    String input = Serial.readStringUntil('\n')
+//  }
+  String testSerialMessage = "T_-200";
+  decodeSerial(testSerialMessage);
+  delay(10000);
 
 }
 
@@ -66,25 +73,7 @@ void handleEncoder2() {
   encoderLeftCount++;
 }
 
-void decodeSerial(int serialInput){
-  
-  if(serialInput.charAt(0) == "R"){ // Rotational input
-    if(serialInput.substring(2) < 0){
-      AngleToRotate(serialInput.substring(2), -1)
-    }
-    elif(serialInput.substring(2) > 0){
-      AngleToRotate(serialInput.substring(2), 1)
-    }
-  }
-  if(serialInput.charAt(0) == "T"){ // Translate / Straight line input 
-    if(serialInput.substring(2) < 0){
-      DistanceToStraight(serialInput.substring(2), -1)
-    }
-    elif(serialInput.substring(2) > 0){
-      DistanceToStraight(serialInput.substring(2), 1)
-    }    
-  }
-}
+
 
 void moveMotor(int dirPin, int pwmPin, float u) {
   // Maximum motor speed
@@ -124,17 +113,18 @@ float pidController(int target, float kp, float kd, float ki) {
 
 
 // Distance to encoder count translation function (helper function)
-int DistanceToEncoderCount(float distance) {
+int DistanceToEncoderCount(float distance) { 
+  Serial.println("in disttoencoder");
 
   // define number of encoder counts per rotation
   int constant_count = 900;
   // define wheel diameter
-  int diameter = 54/1000; // [m] = [mm/1000]
+  int diameter = 54; // [mm]
   // distance travelled by wheel in one rotation
-  float dist_per_rotation = diameter*PI;  // [m]
+  float dist_per_rotation = diameter*PI;  // [m*1000] = [mm]
   // distance travelled per encoder count
   float dist_per_count = dist_per_rotation/constant_count;
-
+  Serial.println(diameter);
   // encoder counts required to travel specified distance
   float encoder_counts_req = distance/dist_per_count;
 
@@ -207,27 +197,33 @@ void MoveRotate(int direction) {
 }
 
 void DistanceToStraight(int distance, int direction){
-  encoderCountsToDist = DistanceToEncoderCount(float distance)
-  if(direction = 1){
+// Function converts distance input into motor movement
+  int encoderCountsToDist = DistanceToEncoderCount(distance);
+  Serial.println("entered correct if statement");
+//  Serial.println(encoderCountsToDist);
+//  Serial.println(distance);
+  if(direction == 1){
     Serial.println(encoderLeftCount);
      while(encoderLeftCount < encoderCountsToDist){
       MoveStraight(1);
      }
-  if(direction = -1){
+  }
+  if(direction == -1){
     Serial.println(encoderLeftCount);
      while(encoderLeftCount < encoderCountsToDist){
       MoveStraight(-1);
-     }     
+     }
+  }     
    MoveStraight(0);
    delay(1000);
    encoderLeftCount = 0; 
-   return;
+//   return;
   }
-}
+
 
 void AngleToRotate(int angle, int direction){ // direction = 1 = clockwise, direction = -1 = anticlockwise
-
-  if (direction = 1) {
+// Function converts input angle into motor movement
+  if (direction == 1) {
     Serial.println(encoderLeftCount);
     while (encoderLeftCount < 200*angle){
       MoveStraight(3);
@@ -239,10 +235,10 @@ void AngleToRotate(int angle, int direction){ // direction = 1 = clockwise, dire
     Serial.println(encoderLeftCount);
     delay(1000);
     encoderLeftCount = 0;
-    return;
+//    return;
 //    }  
   }
-  if (direction = -1) {
+  if (direction == -1) {
     while (encoderLeftCount < 200*angle){
       MoveStraight(-3);
       MoveStraight(2);
@@ -254,7 +250,42 @@ void AngleToRotate(int angle, int direction){ // direction = 1 = clockwise, dire
     Serial.println(encoderLeftCount);
     delay(1000);
     encoderLeftCount = 0;
-    return;
+//    return;
 //    }  
   }  
 }
+
+
+
+void decodeSerial(String serialInput){
+  int distance_angle = serialInput.substring(2).toInt();
+//  Serial.println(serialInput);
+//  Serial.println(distance_angle);
+//  Serial.println(serialInput.charAt(0));
+  if(serialInput.charAt(0) == 'R'){ // Rotational input
+    if(distance_angle < 0){
+      AngleToRotate(abs(distance_angle), -1);
+    }
+    else if(distance_angle > 0){
+      AngleToRotate(abs(distance_angle), 1);
+    }
+  }
+  if(serialInput.charAt(0) == 'T'){ // Translate / Straight line input 
+//    Serial.println("entered translate");
+    if(distance_angle < 0){
+      DistanceToStraight(abs(distance_angle), -1);
+//      Serial.println("entered correct if statement");
+    }
+    else if(distance_angle > 0){
+      DistanceToStraight(abs(distance_angle), 1);
+    }    
+  }
+}
+
+
+
+// functions for ultrasonic
+
+// 1 - rotate until ball found
+// 2 - go forward until ball is within certain distance
+// 3 - make correctional movements to ensure ball is closest to middle sensor 
