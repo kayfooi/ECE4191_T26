@@ -5,17 +5,17 @@
 // Might need PWM pins for speed
 // Pins 2-13 and 44-46
 // NAME THESE MOTORS LEFT AND RIGHT EVENTUALLY
-int motorRightA = 30;
-int motorRightB = 4;
-int motorLeftA = 31;
-int motorLeftB = 5;
+int motorRightA = 47;
+int motorRightB = 46;
+int motorLeftA = 49;
+int motorLeftB = 48;
 
 // define encoder pins for motors
 // Interrupt pins are 2-3 and 18-21
-int encoderRight = 2;
+int encoderRight = 3;
 int encoderRightin = 18;
-int encoderLeft = 3;
-int encoderLeftin = 19;
+int encoderLeft = 2;
+int encoderLeftin = 19 ;
 
 // define variables for encoder counts
 volatile long encoderRightCount = 0;
@@ -35,6 +35,7 @@ void setup() {
   pinMode(motorRightB, OUTPUT);
   pinMode(motorLeftA, OUTPUT);
   pinMode(motorLeftB, OUTPUT);
+  
   pinMode(encoderRight, INPUT);
   pinMode(encoderRightin, INPUT);
   pinMode(encoderLeft, INPUT);
@@ -48,108 +49,15 @@ void setup() {
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
+//  // put your main code here, to run repeatedly:
+
+  AngleToRotate(360);
+  delay(10000);
+//  MoveStraight(1);
+//  delay(2000); 
+//  MoveStraight(0);
+//  delay(1000); 
   
-  // TEST
-
-
-  MoveStraight(1);
-  delay(10000);
-  MoveStraight(-1);
-  delay(10000);
-
-
-/*
-  MoveRotate(1);
-  delay(10000);
-  MoveRotate(-1);
-  delay(10000);
-  MoveStraight(0);
-  delay(300000);
-*/
-
-
-  /*
-  digitalWrite(motorRightdir, HIGH);
-  digitalWrite(motorRightspeed, HIGH);
-  digitalWrite(motorLeftdir, HIGH);
-  digitalWrite(motorLeftspeed, HIGH);
-  delay(3000);
-  */
-
-  // right motor reverse
-  //digitalWrite(motorRightA, HIGH);
-  //digitalWrite(motorRightB, LOW);
-  // right motor forward
-  //digitalWrite(motorRightA, LOW);
-  //digitalWrite(motorRightB, HIGH);
-
-  // left motor reverse
-  //digitalWrite(motorLeftA, HIGH);
-  //digitalWrite(motorLeftB, LOW);
-  // left motor forward
-  //digitalWrite(motorLeftA, LOW);
-  //digitalWrite(motorLeftB, HIGH);
-
-  /*
-  // move forward
-  digitalWrite(motorRightA, LOW);
-  digitalWrite(motorRightB, HIGH);
-  digitalWrite(motorLeftA, LOW);
-  digitalWrite(motorLeftB, HIGH);
-  */
-
-  // spin both motors forward
-  /*
-  digitalWrite(motorRightdir, LOW);
-  digitalWrite(motorRightspeed, 0);
-  digitalWrite(motorLeftdir, LOW);
-  digitalWrite(motorLeftspeed, 0);
-  delay(1000);
-  /*
-
-  //digitalWrite(motorRightdir, LOW);
-  //digitalWrite(motorRightspeed, HIGH);
-  //digitalWrite(motorLeftdir, LOW);
-  //digitalWrite(motorLeftspeed, HIGH);
-  //delay(1000);
-  
-/*
-  // Set desired setpoint for motor 2
-  int target = encoderRightCount;
-
-  // Move motor 1
-  //digitalWrite(motorRightdir, 0);
-  //analogWrite(motorRightspeed, 50);
-
-  digitalWrite(motorRightdir, 0);
-  analogWrite(motorRightspeed, 255);
-  
-  // PID gains and computation
-  float kp = 2.0;
-  float kd = 0.0;
-  float ki = 0.0;
-  float u = pidController(target, kp, kd, ki);
-
-  // Control motor 2 based on PID
-  moveMotor(motorLeftdir, motorLeftspeed, u);
-
-*/
-
-  // Print statements for debugging
-  Serial.print(encoderRightCount);
-  Serial.print(", ");
-  Serial.println(encoderLeftCount);
-  delay(1000);
-
-/*
-  analogWrite(motorRightspeed, 0);
-  analogWrite(motorLeftspeed, 0);
-
-  while (true);
-
-  */
-
 
 }
 
@@ -218,44 +126,13 @@ int DistanceToEncoderCount(float distance) {
 
 }
 
-/*
 // Straight line movement function
-void MoveStraight(int direction, float distance) {
-  
-  if (direction == 0) {
-    digitalWrite(motorRightA, LOW);
-    digitalWrite(motorRightA, LOW);
-    digitalWrite(motorLeftA, LOW);
-    digitalWrite(motorLeftA, LOW);
-  }
-
-  // set motor rotation direction
-  // 1 indicates forward, 0 indicates reverse
-  if (direction == 1) {
-    digitalWrite(motorRightA, LOW);
-    digitalWrite(motorLeftA, LOW);
-  }
-  if (direction == 0) {
-    digitalWrite(motorRightA, HIGH);
-    digitalWrite(motorLeftA, HIGH);
-  }
-  
-  // call function to determine encoder counts required
-  int dist_travelled = DistanceToEncoderCount(distance);
-  // move motors while encoder count is less than this value
-  while (encoderRightCount < dist_travelled) {
-    // rotate motors at maximum speed
-    digitalWrite(motorRightA, );
-    digitalWrite(motorLeftA, );
-  }
-
-}
-*/
-
 void MoveStraight(int direction) {
   
   // set motor rotation direction
   // 1 indicates forward, -1 indicates reverse, 0 indicates stop
+  // 2 indicates Right Forward, 3 indicates Left Forward
+  // -2 indicates Right Backward, -3 indicates Left Backward
   if (direction == 1) {
     digitalWrite(motorRightA, LOW);
     digitalWrite(motorRightB, HIGH);
@@ -268,24 +145,31 @@ void MoveStraight(int direction) {
     digitalWrite(motorLeftA, HIGH);
     digitalWrite(motorLeftB, LOW);
   }
-
    if (direction == 0) {
     digitalWrite(motorRightA, LOW);
     digitalWrite(motorRightB, LOW);
     digitalWrite(motorLeftA, LOW);
     digitalWrite(motorLeftB, LOW);
   }
- 
-  /*
-  // call function to determine encoder counts required
-  int dist_travelled = DistanceToEncoderCount(distance);
-  // move motors while encoder count is less than this value
-  while (encoderRightCount < dist_travelled) {
-    // rotate motors at maximum speed
-    digitalWrite(motorRightB, speed);
-    digitalWrite(motorLeftB, speed);
+    if (direction == 2) {
+    digitalWrite(motorRightA, LOW);
+    digitalWrite(motorRightB, HIGH);
   }
-  */
+      if (direction == 3) {
+    digitalWrite(motorLeftA, LOW);
+    digitalWrite(motorLeftB, HIGH);
+  }
+
+      if (direction == -2) {
+    digitalWrite(motorRightA, HIGH);
+    digitalWrite(motorRightB, LOW);
+  }
+  
+      if (direction == -3) {
+    digitalWrite(motorLeftA, HIGH);
+    digitalWrite(motorLeftB, LOW);
+  }
+
 
 }
 
@@ -304,4 +188,25 @@ void MoveRotate(int direction) {
     digitalWrite(motorLeftA, HIGH);
     digitalWrite(motorLeftB, LOW);
   }
+}
+
+void AngleToRotate(int angle){
+
+//  encoder_counts = 200*angle
+  if (encoderLeftCount < 100*angle){
+    MoveStraight(3);
+    MoveStraight(-2);
+    Serial.println(encoderLeftCount);
+  }
+//  delay(600);
+
+  if (encoderLeftCount >= 100*angle){
+    MoveStraight(0);
+    Serial.println(encoderLeftCount);
+    delay(1000);
+    encoderLeftCount = 0;
+    return;
+//    delay(100000000);
+  }  
+  
 }
