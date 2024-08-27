@@ -50,13 +50,9 @@ void setup() {
 
 void loop() {
 //  // put your main code here, to run repeatedly:
-
-  AngleToRotate(360);
-  delay(10000);
-//  MoveStraight(1);
-//  delay(2000); 
-//  MoveStraight(0);
-//  delay(1000); 
+  if (Serial.available() > 0 ) {
+    String input = Serial.readStringUntil('\n')
+  }
   
 
 }
@@ -68,6 +64,26 @@ void handleEncoder1() {
 }
 void handleEncoder2() {
   encoderLeftCount++;
+}
+
+void decodeSerial(int serialInput){
+  
+  if(serialInput.charAt(0) == "R"){ // Rotational input
+    if(serialInput.substring(2) < 0){
+      AngleToRotate(serialInput.substring(2), -1)
+    }
+    elif(serialInput.substring(2) > 0){
+      AngleToRotate(serialInput.substring(2), 1)
+    }
+  }
+  if(serialInput.charAt(0) == "T"){ // Translate / Straight line input 
+    if(serialInput.substring(2) < 0){
+      DistanceToStraight(serialInput.substring(2), -1)
+    }
+    elif(serialInput.substring(2) > 0){
+      DistanceToStraight(serialInput.substring(2), 1)
+    }    
+  }
 }
 
 void moveMotor(int dirPin, int pwmPin, float u) {
@@ -190,23 +206,55 @@ void MoveRotate(int direction) {
   }
 }
 
-void AngleToRotate(int angle){
-
-//  encoder_counts = 200*angle
-  if (encoderLeftCount < 100*angle){
-    MoveStraight(3);
-    MoveStraight(-2);
+void DistanceToStraight(int distance, int direction){
+  encoderCountsToDist = DistanceToEncoderCount(float distance)
+  if(direction = 1){
     Serial.println(encoderLeftCount);
+     while(encoderLeftCount < encoderCountsToDist){
+      MoveStraight(1);
+     }
+  if(direction = -1){
+    Serial.println(encoderLeftCount);
+     while(encoderLeftCount < encoderCountsToDist){
+      MoveStraight(-1);
+     }     
+   MoveStraight(0);
+   delay(1000);
+   encoderLeftCount = 0; 
+   return;
   }
-//  delay(600);
+}
 
-  if (encoderLeftCount >= 100*angle){
+void AngleToRotate(int angle, int direction){ // direction = 1 = clockwise, direction = -1 = anticlockwise
+
+  if (direction = 1) {
+    Serial.println(encoderLeftCount);
+    while (encoderLeftCount < 200*angle){
+      MoveStraight(3);
+      MoveStraight(-2);
+    }
+  
+//    if (encoderLeftCount >= 200*angle){
     MoveStraight(0);
     Serial.println(encoderLeftCount);
     delay(1000);
     encoderLeftCount = 0;
     return;
-//    delay(100000000);
-  }  
+//    }  
+  }
+  if (direction = -1) {
+    while (encoderLeftCount < 200*angle){
+      MoveStraight(-3);
+      MoveStraight(2);
+      Serial.println(encoderLeftCount);
+    }
   
+//    if (encoderLeftCount >= 200*angle){
+    MoveStraight(0);
+    Serial.println(encoderLeftCount);
+    delay(1000);
+    encoderLeftCount = 0;
+    return;
+//    }  
+  }  
 }
