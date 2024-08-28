@@ -38,9 +38,10 @@ if __name__ == "__main__":
       if (detected is not None):
          # double check its a ball
          
-         # rotate to face ball
-         rotation = bot.calculateRotationDelta(detected)
-         bot.rotate(rotation)
+         # # rotate to face ball
+         # rotation = bot.calculateRotationDelta(detected)
+         # bot.rotate(rotation)
+         bot.coordTran(detected)
 
          # bot.cap.release()
 
@@ -71,23 +72,23 @@ if __name__ == "__main__":
       #    bot.translate(distance)
       
    
-   # 2. Navigate to ball
-   # initial distance to ball
-   init_distance = bot.calculateDistance(detected)
-   distance = init_distance
+   # # 2. Navigate to ball
+   # # initial distance to ball
+   # init_distance = bot.calculateDistance(detected)
+   # distance = init_distance
 
-   # repeatedly halve distance and correct rotation until in close range of ball
-   while distance > 0.8:
-      bot.translate(0.005)
-      detected = bot.detect_ball()
-      rotation = bot.calculateRotationDelta(detected)
-      distance = bot.calculateDistance(detected)
-      # rotate if not on the right path
-      if abs(rotation) > 5:  
-         bot.rotate(rotation)
+   # # repeatedly halve distance and correct rotation until in close range of ball
+   # while distance > 0.8:
+   #    bot.translate(0.005)
+   #    detected = bot.detect_ball()
+   #    rotation = bot.calculateRotationDelta(detected)
+   #    distance = bot.calculateDistance(detected)
+   #    # rotate if not on the right path
+   #    if abs(rotation) > 5:  
+   #       bot.rotate(rotation)
    
-   # slowly approach the ball (and hopefully touch it)
-   bot.translate(distance + 0.05, 0.1)
+   # # slowly approach the ball (and hopefully touch it)
+   # bot.translate(distance + 0.05, 0.1)
 
 
    # 3. Return to starting position

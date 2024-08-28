@@ -106,11 +106,11 @@ void loop() {
     decodeSerial(input);
   }
 
-  delay(1000);
-  AngleToRotate(90, -1);
-  delay(100);
-  DistanceToStraight(1000, 1);
-  delay(10000);
+  // delay(1000);
+  // AngleToRotate(90, -1);
+  // delay(100);
+  // DistanceToStraight(1000, 1);
+  // delay(10000);
 }
 
 // Functions called during interrupts
@@ -427,15 +427,15 @@ void decodeSerial(String serialInput){
 }
 
 void handlePositionInput(float x, float y) {
-  float angleReq = angleCalc(x,y)
-  if(distance_angle < 0){
-    AngleToRotate(abs(distance_angle), -1);
+  float angleReq = angleCalc(x,y);
+  if(angleReq < 0){
+    AngleToRotate(abs(angleReq), -1);
   }
-  else if(distance_angle > 0){
-    AngleToRotate(abs(distance_angle), 1);
+  else if(angleReq > 0){
+    AngleToRotate(abs(angleReq), 1);
   }
-  float distReq = distCalc(x,y)
-  DistanceToStraight(distReq, 1)
+  float distReq = distCalc(x,y);
+  DistanceToStraight(distReq, 1);
   
 }
 
@@ -475,10 +475,10 @@ void rotateUntilBallFound(){
 
 float angleCalc(float xBall, float yBall){
   float theta = atan2(yBall - yPos, xBall - xPos) - thPos; 
-  return theta
+  return theta;
 }
 
 float distCalc(float xBall, float yBall){
-  float dist = ((yBall-yPos)^2 + (xBall - xPos)^2)^(1/2)
-  return dist
+  float dist = sqrt(sq(yBall-yPos) + sq(xBall - xPos));
+  return dist;
 }

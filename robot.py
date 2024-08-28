@@ -98,6 +98,11 @@ class DiffDriveRobot:
         print("Timed out")
         return None
 
+    def coordTran(self, x, y):
+        instruction = f"P {x} {y}"
+        self._arduino_instruction(instruction)
+
+
     def rotate(self, angle, velocity=10.0):
         """
         Rotate the robot on the spot. (anti-clockwise direction is positive)  
