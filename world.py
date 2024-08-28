@@ -85,9 +85,10 @@ class Ball:
 
 
 if __name__ == "__main__":
-    from matplotlib import pyplot as plt
+    # from matplotlib import pyplot as plt
     w = World(4)
     ips = np.array(w.interest_points)
-    plt.plot(ips[:, 0], ips[:, 1], 'rx')
-    plt.title(f'{w.quadrant["name"]} Interest Points')
-    plt.show()
+    print(ips)
+    # plt.plot(ips[:, 0], ips[:, 1], 'rx')
+    # plt.title(f'{w.quadrant["name"]} Interest Points')
+    # plt.show()
