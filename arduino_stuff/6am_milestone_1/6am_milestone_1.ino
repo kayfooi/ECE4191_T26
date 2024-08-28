@@ -54,7 +54,7 @@ String serialInput;
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
-  Serial3.begin(9600);
+  Serial2.begin(9600);
 
   Serial.println("serial test");
   pinMode(motorRightA, OUTPUT);
@@ -108,8 +108,8 @@ void setup() {
 
 void loop() {
   delay(20);
-  while (Serial3.available() > 0 ) {
-     String input = Serial3.readStringUntil('\n');
+  while (Serial2.available() > 0 ) {
+     String input = Serial2.readStringUntil('\n');
      input.trim();
      Serial.println("recieved");
      Serial.println(input);
