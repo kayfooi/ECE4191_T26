@@ -112,9 +112,36 @@ class DiffDriveRobot:
             [np.sin(th_rad), np.cos(th_rad)]
         ])
 
+    # def detect_ball(self, img=None):
+    #     """
+    #     Captures Image and detects tennis ball locations in world coordinates
+
+    #     Parameters:
+    #     img: np array representing image
+
+    #     Return
+    #     ----
+    #     position: world coordinates (x, y) of detected ball, can be None
+    #     """
+    #     if img is None:
+    #         # capture from camera
+    #         img = camera.capture()
+            
+
+    #     # ball_loc = np.array(camera.detect_ball(img))
+    #     ball_loc = np.array(self.detect_ball(img)) 
+
+    #     if ball_loc is not None:
+    #         # apply homography
+    #         relative_pos = self._H @ np.append(ball_loc, [1])
+    #         # translate into world coordinates
+    #         return self._getRotationMatrix() @ relative_pos[:2] + self.pos
+    #     else:
+    #         return True # None (change once detection is added)
+    
     def detect_ball(self, img=None):
         """
-        Captures Image and detects tennis ball locations in world coordinates
+        Detects tennis ball locations in world coordinates from an image.
 
         Parameters:
         img: np array representing image
@@ -124,21 +151,24 @@ class DiffDriveRobot:
         position: world coordinates (x, y) of detected ball, can be None
         """
         if img is None:
-            # capture from camera
+            # Capture from camera
             img = camera.capture()
-            
 
-        # ball_loc = np.array(camera.detect_ball(img))
-        ball_loc = np.array(self.detect_ball(img))
+        # Use camera's ball detection method here
+        ball_loc = camera.detect_ball(img)  # Assuming camera has a method to detect the ball
 
         if ball_loc is not None:
-            # apply homography
+            # Convert to numpy array if necessary
+            ball_loc = np.array(ball_loc)
+
+            # Apply homography to convert from image to world coordinates
             relative_pos = self._H @ np.append(ball_loc, [1])
-            # translate into world coordinates
+            # Translate into world coordinates
             return self._getRotationMatrix() @ relative_pos[:2] + self.pos
         else:
-            return True # None (change once detection is added)
-    
+            return None  # Return None if no ball is detected
+
+
     def calculateRotationDelta(self, p):
         """
         Parameters
