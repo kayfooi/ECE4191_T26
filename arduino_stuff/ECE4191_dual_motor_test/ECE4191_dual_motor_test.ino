@@ -69,32 +69,48 @@ void setup() {
 
 }
 
-void loop() {
-//  // put your main code here, to run repeatedly:
+// void loop() {
+// //  // put your main code here, to run repeatedly:
 
-//          Test when connected to RPI
-//  if (Serial.available() > 0 ) {
-//    String input = Serial.readStringUntil('\n')
-//  }
-  // String testSerialMessage = "T_-200";
-  // decodeSerial(testSerialMessage);
-  // delay(10000);
+// //          Test when connected to RPI
+// //  if (Serial.available() > 0 ) {
+// //    String input = Serial.readStringUntil('\n')
+// //  }
+//   // String testSerialMessage = "T_-200";
+//   // decodeSerial(testSerialMessage);
+//   // delay(10000);
+//   delay(1000);
+//   AngleToRotate(90, -1);
+//   delay(100);
+//   DistanceToStraight(1000, 1);
+//   delay(10000);
+//   /*
+//   AngleToRotate(10, -1);
+//   AngleToRotate(10, -1);
+//   AngleToRotate(10, -1);
+//   AngleToRotate(10, -1);
+//   AngleToRotate(10, -1);
+//   AngleToRotate(10, -1);
+//   AngleToRotate(10, -1);
+//   AngleToRotate(10, -1);
+//   */
+
+// }
+
+
+
+void loop() {
+  if (Serial.available() > 0 ) {
+    String input = Serial.readStringUntil('\n');
+    input.trim();
+    decodeSerial(input);
+  }
+
   delay(1000);
   AngleToRotate(90, -1);
   delay(100);
   DistanceToStraight(1000, 1);
   delay(10000);
-  /*
-  AngleToRotate(10, -1);
-  AngleToRotate(10, -1);
-  AngleToRotate(10, -1);
-  AngleToRotate(10, -1);
-  AngleToRotate(10, -1);
-  AngleToRotate(10, -1);
-  AngleToRotate(10, -1);
-  AngleToRotate(10, -1);
-  */
-
 }
 
 // Functions called during interrupts
