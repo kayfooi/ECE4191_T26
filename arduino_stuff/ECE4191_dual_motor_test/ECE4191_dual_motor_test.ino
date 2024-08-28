@@ -79,9 +79,11 @@ void loop() {
   // String testSerialMessage = "T_-200";
   // decodeSerial(testSerialMessage);
   // delay(10000);
-  // DistanceToStraight(1000, 1);
-  AngleToRotate(90, -1);
   delay(1000);
+  AngleToRotate(90, -1);
+  delay(100);
+  DistanceToStraight(1000, 1);
+  delay(10000);
   /*
   AngleToRotate(10, -1);
   AngleToRotate(10, -1);
@@ -187,7 +189,7 @@ float EncodertoDist(int Encoder)
 
 float EncodertoAngle(int Encoder)
 {
-  float angle = Encoder/3340*360;
+  float angle = Encoder/9.3;
   return angle;
 }
 
@@ -318,8 +320,8 @@ void AngleToRotate(int angle, int direction) { // direction = 1 = clockwise, dir
   //encoderLeftCount2 = 0;
   encoderLeftCount = 0;
   int encodeReq = AngletoEncoder(angle);
-  Serial.print("required encoder: ");
-  Serial.println(encodeReq);
+  // Serial.print("required encoder: ");
+  // Serial.println(encodeReq);
   if (direction == 1) {
     MoveRotate(1);
     while (encoderLeftCount < encodeReq) {
