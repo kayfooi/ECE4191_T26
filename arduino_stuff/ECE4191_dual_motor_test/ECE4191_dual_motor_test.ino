@@ -187,7 +187,7 @@ float EncodertoDist(int Encoder)
 
 float EncodertoAngle(int Encoder)
 {
-  float angle = Encoder/200;
+  float angle = Encoder/3340*360;
   return angle;
 }
 
