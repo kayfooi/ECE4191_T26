@@ -11,7 +11,7 @@ class DiffDriveRobot:
         self.th = init_th
 
         # Connection to Arduino board
-        ser = serial.Serial('/dev/ttyS0', 9600, timeout=0.5)
+        self.ser = serial.Serial('/dev/ttyS0', 9600, timeout=0.5)
 
 
         self.ser.reset_input_buffer()
