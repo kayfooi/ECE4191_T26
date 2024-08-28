@@ -213,6 +213,7 @@ void updatePosition(float dist)
 void updatePose(float angle)
 {
   thPos = thPos + angle;
+  Serial.print("Current Pose: ");
   Serial.print(thPos);
   Serial.println(" degrees");
 }
