@@ -49,6 +49,7 @@ class ImageLabeler:
         while self.load_image():
             while True:
                 key = cv2.waitKey(1) & 0xFF
+                
                 if key == 13:  # Enter key
                     self.save_current_image()
                     break
@@ -61,6 +62,11 @@ class ImageLabeler:
                     self.save_results()
                     cv2.destroyAllWindows()
                     return
+                
+                elif chr(key) == 'p':
+                    # Print coords
+                    for (x, y) in self.points:
+                        print(x,',', y)
 
             self.current_image_index += 1
 

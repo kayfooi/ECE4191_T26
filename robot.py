@@ -17,10 +17,11 @@ class DiffDriveRobot:
         time.sleep(1.5) # important sleep to allow serial communication to initialise
 
         # Homography that transforms image coordinates to world coordinates
+        # As of 28th Aug 9AM
         self._H = np.array([
-            [1, 0, 0],
-            [0, 1, 0],
-            [0, 0, 1]
+            [-0.014210389999953848, -0.0006487560233598932, 9.446387805048925],
+            [-0.002584902022933329, 0.003388864890354594, -17.385493275570447],
+            [-0.0029850356852013345, -0.04116105685090471, 1.0],
         ])
     
     def _arduino_instruction(self, instruction):

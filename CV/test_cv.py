@@ -33,7 +33,7 @@ show_each_result_scores = True # annotate images that are shown
 print_each_result = True # print all results to console
 
 # Update path to relevant test set
-IMGS_DIR = os.path.join('test_imgs', 'test_images')
+IMGS_DIR = os.path.join('test_imgs', '2024_08_28')
 # IMGS_DIR = os.path.join('test_imgs', 'blender', 'oneball')
 CASE_DIR = os.path.join(IMGS_DIR, 'cases.json')
 # All image files to test

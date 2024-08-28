@@ -1,0 +1,123 @@
+[
+  {
+    "caseID": "0000",
+    "cam_heading": 0.0,
+    "cam_location": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "balls": [
+      {
+        "ball_id": "tennis-ball.000",
+        "world": [
+          0,
+          0,
+          0
+        ],
+        "image": [
+          667,
+          162
+        ],
+        "in_bounds": true
+      },
+      {
+        "ball_id": "tennis-ball.001",
+        "world": [
+          0,
+          0,
+          0
+        ],
+        "image": [
+          530,
+          60
+        ],
+        "in_bounds": true
+      }
+    ]
+  },
+  {
+    "caseID": "0001",
+    "cam_heading": 0.0,
+    "cam_location": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "balls": [
+      {
+        "ball_id": "tennis-ball.000",
+        "world": [
+          0,
+          0,
+          0
+        ],
+        "image": [
+          54,
+          345
+        ],
+        "in_bounds": true
+      },
+      {
+        "ball_id": "tennis-ball.001",
+        "world": [
+          0,
+          0,
+          0
+        ],
+        "image": [
+          1271,
+          357
+        ],
+        "in_bounds": true
+      }
+    ]
+  },
+  {
+    "caseID": "0002",
+    "cam_heading": 0.0,
+    "cam_location": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "balls": [
+      {
+        "ball_id": "tennis-ball.000",
+        "world": [
+          0,
+          0,
+          0
+        ],
+        "image": [
+          668,
+          163
+        ],
+        "in_bounds": true
+      },
+      {
+        "ball_id": "tennis-ball.001",
+        "world": [
+          0,
+          0,
+          0
+        ],
+        "image": [
+          1111,
+          118
+        ],
+        "in_bounds": true
+      }
+    ]
+  },
+  {
+    "caseID": "0003",
+    "cam_heading": 0.0,
+    "cam_location": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "balls": []
+  }
+]

@@ -4,6 +4,22 @@
 import cv2
 import numpy as np
 from ultralytics import YOLO
+import time
+from camera_calibrate import H, image_to_world
+
+class Camera:
+    def __init__(self, display=False, log=True):
+        # Wake camera up
+        self.cap = cv2.VideoCapture(0)
+        time.sleep(1)
+    
+    def capture(self):
+        ret, frame = self.cap.read()
+        return frame
+    
+    def detect_ball(self, img):
+        return YOLOv2(img)
+
 
 # Load a model
 model1 = YOLO("YOLOv1.pt")  # load a custom model
@@ -176,7 +192,6 @@ def detect_ball_circularity_no_blue(img):
 def peek(img):
     cv2.imshow("Peek", img)
     cv2.waitKey(0)
-    
 
 def find_circles_template_match(image, min_diameter=20, max_diameter=100, downsample_factor = 0.5):
     
@@ -287,15 +302,74 @@ def circle_intersection_area(r1, r2, d):
     return area
 
 
+import torch
+import cv2
+import numpy as np
+from torchvision import transforms
+
+def process_frame(frame, model):
+    # Convert the frame to RGB (YOLOv5 expects RGB images)
+    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    
+    # Convert to PyTorch tensor
+    transform = transforms.ToTensor()
+    input_tensor = transform(frame_rgb)
+    input_tensor = input_tensor.unsqueeze(0)  # Add batch dimension
+
+    # Perform inference
+    with torch.no_grad():
+        outputs = model(input_tensor)
+
+    # Process the outputs (this will depend on your specific model)
+    # For YOLOv5, the output is already in a convenient format
+    return outputs
+
+def draw_boxes(frame, detections):
+    for result in detections:
+        print(result)
+        for box in result.boxes:
+            det = box.xyxy # det is (x1, y1, x2, y2, conf, cls)
+            # print(det)
+            x1, y1, x2, y2 = map(int, det[0])
+            world_c = image_to_world(np.array([[(x1 + x2)/2, y2]]), H)
+
+            label = f"{result.names[int(box.cls[0])]} @ ({world_c[0, 0]:.2f}, {world_c[0,1]:.2f}) conf: {box.conf[0]:.2f}"
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            
+            cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+    return frame
+
+def main():
+    model = model2
+    cap = cv2.VideoCapture(0)  # 0 for default camera
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        detections = model1(frame, conf=0.50, verbose=False)
+        frame_with_boxes = draw_boxes(frame, detections)
+
+        cv2.imshow('Object Detection', frame_with_boxes)
+
+        if cv2.waitKey(1) & 0xFF == 27:  # Press 'Esc' to exit
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
 if __name__ == "__main__":
     # Use to this test if the camera is working properly.
     # img = capture()
     # cv2.imshow('test', img)
 
-    for i in range(20):
-        imgpath = f'test_imgs/test_images/real{i:04d}.jpg'
-        img = cv2.imread(imgpath)
-        YOLOv1(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+    # for i in range(20):
+    #     imgpath = f'test_imgs/test_images/real{i:04d}.jpg'
+    #     img = cv2.imread(imgpath)
+    #     YOLOv1(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+
+    main()
 
 
 
