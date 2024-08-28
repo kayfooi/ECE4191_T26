@@ -291,16 +291,15 @@ void DistanceToStraight(int distance, int direction) {
   if(direction == 1){
     MoveStraight(1);
      while(encoderLeftCount < encoderCountsToDist){
-      Serial.print("Count: ");
-      Serial.println(encoderLeftCount);
-      delay(10);
+      // Serial.print("Count: ");
+      // Serial.println(encoderLeftCount);
      }
   }
   if(direction == -1){
+    MoveStraight(-1);
      while(encoderLeftCount < encoderCountsToDist){
-      Serial.print("Count: ");
-      Serial.println(encoderLeftCount);
-      MoveStraight(-1);
+      // Serial.print("Count: ");
+      // Serial.println(encoderLeftCount);
      }
   }     
    MoveStraight(0);
@@ -323,20 +322,23 @@ void AngleToRotate(int angle, int direction) { // direction = 1 = clockwise, dir
   if (direction == 1) {
     MoveRotate(1);
     while (encoderLeftCount < encodeReq) {
-      Serial.print("Encoder: ");
-      Serial.println(encoderLeftCount);
+      // Serial.print("Encoder: ");
+      // Serial.println(encoderLeftCount);
     }
     MoveStraight(0);
   }
   if (direction == -1) {
     MoveRotate(-1);
     while (encoderLeftCount < encodeReq) {
-      Serial.print("Encoder: ");
-      Serial.println(encoderLeftCount);
+      // Serial.print("Encoder: ");
+      // Serial.println(encoderLeftCount);
     }
     MoveStraight(0);
   }
-
+  MoveStraight(0);
+  delay(1000);
+  float angleRot = EncodertoAngle(encoderLeftCount);  
+  updatePose(angleRot);
   encoderLeftCount = 0;
   /*
   //    if (encoderLeftCount >= 200*angle){
