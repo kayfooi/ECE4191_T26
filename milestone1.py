@@ -16,18 +16,25 @@ Purely vision based for the moment
 from robot import DiffDriveRobot
 import numpy as np
 import cv2
+import world
 
 if __name__ == "__main__":
-   init_pos = np.array([0.,0.])
-   init_orientation = 0
-   bot = DiffDriveRobot(init_pos, init_orientation)
+   
+   ROTATION_INCREMENT = 40 # amount to rotate each time in degrees
+
+   court = world.World(3) # either quadrant 3 or 4 for milestone 1
+   bot = DiffDriveRobot(court.quadrant["init_pos"], court.quadrant["init_heading"])
    
    test_img = cv2.imread('./CV/test_imgs/blender/simple/test_0.jpg')
    
    # 1. Identify and locate exactly 1 tennis ball
    detected = None
+   consecutive_rotations = 0
+   max_consecutive_rotations = np.ceil(360/ROTATION_INCREMENT)
+   current_loc = -1
    while detected is None:
-      detected = bot.detect_ball(test_img) # scan environment
+      detected = None # bot.detect_ball() # scan environment (return the closest ball)
+
       if (detected is not None):
          # double check its a ball
          
@@ -44,8 +51,23 @@ if __name__ == "__main__":
                # (and it is in front of robot +- 5 degrees)
                break
 
-      # Continuously rotate in fixed increments until bot finds a ball       
-      bot.rotate(40)
+      # Continuously rotate in fixed increments until bot finds a ball
+      if court.is_rotation_sensible(ROTATION_INCREMENT, bot) and consecutive_rotations < max_consecutive_rotations:
+         bot.rotate(ROTATION_INCREMENT)
+         consecutive_rotations += 1
+
+      # Translate to a better location
+      else:
+         current_loc = (current_loc + 1) % len(court.interest_points)
+         new_loc = court.interest_points[current_loc]
+         
+         rotation = bot.calculateRotationDelta(new_loc)
+         distance = bot.calculateDistance(new_loc)
+         print(f'Going to {current_loc}: ({new_loc[0]}, {new_loc[1]}) w/ rotation: {rotation} and translation: {distance}')
+
+         bot.rotate(rotation)
+         bot.translate(distance)
+      
    
    # 2. Navigate to ball
    # initial distance to ball

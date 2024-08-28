@@ -1,20 +1,43 @@
 import numpy as np
-import CV.camera as camera
 import unittest
 import cv2
 import serial
 import time
+from ultralytics import YOLO
+import glob
+import sys
+
 
 class DiffDriveRobot:
     def __init__(self,init_pos = np.array([0.0, 0.0]), init_th = 0):
         self.pos = init_pos
         self.th = init_th
+        self.model = YOLO("CV/YOLOv2.pt")
 
         # Connection to Arduino board
-        self.ser = serial.Serial('/dev/tty1', 9600, timeout=0.5)
-        self.ser.reset_input_buffer()
-        
-        time.sleep(1.5) # important sleep to allow serial communication to initialise
+        ports = []
+        if sys.platform.startswith('win'):
+            ports = ['COM%s' % (i + 1) for i in range(256)]
+        elif sys.platform.startswith('linux') or sys.platform.startswith('cygwin'):
+            # this excludes your current terminal "/dev/tty"
+            ports = glob.glob('/dev/tty[A-Za-z]*')
+        elif sys.platform.startswith('darwin'):
+            ports = glob.glob('/dev/tty.*')
+        else:
+            raise EnvironmentError('Unsupported platform')
+        print(ports)
+        try:
+            self.ser = serial.Serial('/dev/tty1', 9600, timeout=0.5)
+            self.ser.reset_input_buffer()
+        except serial.SerialException as e:
+            print("Could not connect to arduino.")
+            self.ser = serial.Serial('')
+            print(e)
+        # Wake camera up
+        self.cap = cv2.VideoCapture(0)
+
+        # important sleep to allow serial communication and camera to initialise
+        time.sleep(1.5) 
 
         # Homography that transforms image coordinates to world coordinates
         # As of 28th Aug 9AM
@@ -24,6 +47,11 @@ class DiffDriveRobot:
             [-0.0029850356852013345, -0.04116105685090471, 1.0],
         ])
     
+    
+    def capture(self):
+        ret, frame = self.cap.read()
+        return frame
+
     def _arduino_instruction(self, instruction):
         """
         Parameters
@@ -113,6 +141,30 @@ class DiffDriveRobot:
             [np.cos(th_rad), -np.sin(th_rad)],
             [np.sin(th_rad), np.cos(th_rad)]
         ])
+    
+    def apply_YOLO_model(self, img):
+        # Predict with the model
+        image = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        # scale = np.array(image.shape[:2]) / np.array((640,  640))
+
+        results = self.model(image, conf=0.50, verbose=False)  # predict on an image
+
+        points = []
+        # Process results list
+        for result in results:
+            boxes = result.boxes  # Boxes object for bounding box outputs
+            for b in boxes:
+                d = b.xywh[0]
+                # points.append([d[])
+                points.append([d[0], d[1] + d[3]/2])
+            # result.show()  # display to screen
+            # result.save(filename="result.jpg")  # save to disk
+
+        # TODO: choose the best points detected
+        points = np.array(points)
+        print(image.shape)
+        best_point = np.argmin(np.abs(points[:, 0] - image.shape[0]))
+        return (points[best_point]).astype(int)
 
     def detect_ball(self, img=None):
         """
@@ -127,10 +179,10 @@ class DiffDriveRobot:
         """
         if img is None:
             # capture from camera
-            img = camera.capture()
-            
+            img = self.capture()
+        
 
-        ball_loc = np.array(camera.detect_ball(img))
+        ball_loc = self.apply_YOLO_model(img)
 
         if ball_loc is not None:
             # apply homography
@@ -219,3 +271,4 @@ class TestBot(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

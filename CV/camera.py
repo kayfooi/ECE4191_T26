@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 import time
-from camera_calibrate import H, image_to_world
+
 
 class Camera:
     def __init__(self, display=False, log=True):
@@ -22,7 +22,7 @@ class Camera:
 
 
 # Load a model
-model1 = YOLO("YOLOv1.pt")  # load a custom model
+# model1 = YOLO("YOLOv1.pt")  # load a custom model
 model2 = YOLO("YOLOv2.pt")
 
 def YOLOv1(image):
@@ -30,7 +30,7 @@ def YOLOv1(image):
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     # scale = np.array(image.shape[:2]) / np.array((640,  640))
 
-    results = model1(image, conf=0.20, verbose=False)  # predict on an image
+    results = model2(image, conf=0.20, verbose=False)  # predict on an image
 
     points = []
     # Process results list
@@ -368,7 +368,7 @@ if __name__ == "__main__":
     #     imgpath = f'test_imgs/test_images/real{i:04d}.jpg'
     #     img = cv2.imread(imgpath)
     #     YOLOv1(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-
+    from camera_calibrate import H, image_to_world
     main()
 
 
