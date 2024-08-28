@@ -375,32 +375,53 @@ void AngleToRotate(int angle, int direction) { // direction = 1 = clockwise, dir
 }
 
 
-
 void decodeSerial(String serialInput){
-  int distance_angle = serialInput.substring(2).toInt();
-//  Serial.println(serialInput);
-//  Serial.println(distance_angle);
-//  Serial.println(serialInput.charAt(0));
-  if(serialInput.charAt(0) == 'R'){ // Rotational input
-    if(distance_angle < 0){
-      AngleToRotate(abs(distance_angle), -1);
+  // Check if the input starts with 'P' for position (x, y)
+  if (serialInput.charAt(0) == 'P') {
+    // Parse the input assuming the format is (x y) without commas
+    int spaceIndex = serialInput.indexOf(' ');
+    float x = serialInput.substring(1, spaceIndex).toFloat();
+    float y = serialInput.substring(spaceIndex + 1).toFloat();
+    
+    // Here you can implement how you want to handle the (x, y) coordinates
+    // For example, calculate the angle and distance to the target
+    handlePositionInput(x, y);
+  } 
+  else {
+    // Original code handling 'R' for rotation and 'T' for translation
+    int distance_angle = serialInput.substring(2).toInt();
+    
+    if(serialInput.charAt(0) == 'R'){ // Rotational input
+      if(distance_angle < 0){
+        AngleToRotate(abs(distance_angle), -1);
+      }
+      else if(distance_angle > 0){
+        AngleToRotate(abs(distance_angle), 1);
+      }
     }
-    else if(distance_angle > 0){
-      AngleToRotate(abs(distance_angle), 1);
+    if(serialInput.charAt(0) == 'T'){ // Translate / Straight line input 
+      if(distance_angle < 0){
+        DistanceToStraight(abs(distance_angle), -1);
+      }
+      else if(distance_angle > 0){
+        DistanceToStraight(abs(distance_angle), 1);
+      }    
     }
-  }
-  if(serialInput.charAt(0) == 'T'){ // Translate / Straight line input 
-//    Serial.println("entered translate");
-    if(distance_angle < 0){
-      DistanceToStraight(abs(distance_angle), -1);
-//      Serial.println("entered correct if statement");
-    }
-    else if(distance_angle > 0){
-      DistanceToStraight(abs(distance_angle), 1);
-    }    
   }
 }
 
+void handlePositionInput(float x, float y) {
+  float angleReq = angleCalc(x,y)
+  if(distance_angle < 0){
+    AngleToRotate(abs(distance_angle), -1);
+  }
+  else if(distance_angle > 0){
+    AngleToRotate(abs(distance_angle), 1);
+  }
+  float distReq = distCalc(x,y)
+  DistanceToStraight(distReq, 1)
+  
+}
 
 /*
 // functions for ultrasonic
@@ -436,4 +457,12 @@ void rotateUntilBallFound(){
 // 2 - go forward until ball is within certain distance
 // 3 - make correctional movements to ensure ball is closest to middle sensor
 
+float angleCalc(float xBall, float yBall){
+  float theta = atan2(yBall - yPos, xBall - xPos) - thPos; 
+  return theta
+}
 
+float distCalc(float xBall, float yBall){
+  float dist = ((yBall-yPos)^2 + (xBall - xPos)^2)^(1/2)
+  return dist
+}
