@@ -52,6 +52,11 @@ class DiffDriveRobot:
                 checks += 1
         return None
 
+    def coordTran(self, x, y):
+        instruction = f"P {x} {y}"
+        self._arduino_instruction(instruction)
+
+
     def rotate(self, angle, velocity=10.0):
         """
         Rotate clockwise  
