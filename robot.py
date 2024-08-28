@@ -128,7 +128,8 @@ class DiffDriveRobot:
             img = camera.capture()
             
 
-        ball_loc = np.array(camera.detect_ball(img))
+        # ball_loc = np.array(camera.detect_ball(img))
+        ball_loc = np.array(self.detect_ball(img))
 
         if ball_loc is not None:
             # apply homography
