@@ -6,5 +6,5 @@ ser = serial.Serial('/dev/ttyS0', 9600, timeout=0.5)
 # Replace with your serial port
 
 while True:
-    ser.write(b'Hello from Raspberry Pi!\n')
-    time.sleep(1)
+    ser.write(b'T_100\n')
+    time.sleep(10) #sleep time in seconds 
