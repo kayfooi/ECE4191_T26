@@ -42,6 +42,7 @@ if __name__ == "__main__":
          # rotation = bot.calculateRotationDelta(detected)
          # bot.rotate(rotation)
          bot.coordTran(detected)
+         # ahhh
 
          # bot.cap.release()
 
