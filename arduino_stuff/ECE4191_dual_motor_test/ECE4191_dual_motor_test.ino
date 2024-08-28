@@ -81,6 +81,7 @@ void loop() {
   // delay(10000);
   // DistanceToStraight(1000, 1);
   AngleToRotate(90, -1);
+  delay(1000);
   /*
   AngleToRotate(10, -1);
   AngleToRotate(10, -1);
@@ -288,16 +289,17 @@ void DistanceToStraight(int distance, int direction) {
   //  Serial.println(encoderCountsToDist);
   //  Serial.println(distance);
   if(direction == 1){
-    Serial.print("Count: ");
-    Serial.println(encoderLeftCount);
+    MoveStraight(1);
      while(encoderLeftCount < encoderCountsToDist){
-      MoveStraight(1);
+      Serial.print("Count: ");
+      Serial.println(encoderLeftCount);
+      delay(10);
      }
   }
   if(direction == -1){
-    Serial.print("Count: ");
-    Serial.println(encoderLeftCount);
      while(encoderLeftCount < encoderCountsToDist){
+      Serial.print("Count: ");
+      Serial.println(encoderLeftCount);
       MoveStraight(-1);
      }
   }     
@@ -314,20 +316,28 @@ void AngleToRotate(int angle, int direction) { // direction = 1 = clockwise, dir
   // Function converts input angle into motor movement
   // effectively reset current encoder count
   //encoderLeftCount2 = 0;
+  encoderLeftCount = 0;
+  int encodeReq = AngletoEncoder(angle);
+  Serial.print("required encoder: ");
+  Serial.println(encodeReq);
   if (direction == 1) {
-    while (encoderLeftCount2 < AngletoEncoder(angle)) {
-      Serial.println(encoderLeftCount2);
-      MoveRotate(1);
+    MoveRotate(1);
+    while (encoderLeftCount < encodeReq) {
+      Serial.print("Encoder: ");
+      Serial.println(encoderLeftCount);
     }
     MoveStraight(0);
   }
   if (direction == -1) {
-    while (encoderLeftCount2 < AngletoEncoder(angle)) {
-      Serial.println(encoderLeftCount2);
-      MoveRotate(-1);
+    MoveRotate(-1);
+    while (encoderLeftCount < encodeReq) {
+      Serial.print("Encoder: ");
+      Serial.println(encoderLeftCount);
     }
     MoveStraight(0);
   }
+
+  encoderLeftCount = 0;
   /*
   //    if (encoderLeftCount >= 200*angle){
     MoveStraight(0);
