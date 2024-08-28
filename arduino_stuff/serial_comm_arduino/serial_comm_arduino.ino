@@ -1,8 +1,10 @@
 // define constants
 #define PI 3.1415926535897932384626433832795
+#define sgn(x) ((x) < 0 ? -1 : ((x) > 0 ? 1 : 0))
 
 void decodeSerial(String serialInput);
 
+int ledPin = 13;
 // define speed and direction pins for motors
 // Might need PWM pins for speed
 // Pins 2-13 and 44-46
@@ -45,57 +47,6 @@ float ePrevious = 0;
 float eIntegral = 0;
 
 String serialInput;
-
-void setup() {
-  // put your setup code here, to run once:
-  Serial.begin(9600);
-  Serial.println("serial test");
-  pinMode(motorRightA, OUTPUT);
-  pinMode(motorRightB, OUTPUT);
-  pinMode(motorLeftA, OUTPUT);
-  pinMode(motorLeftB, OUTPUT);
-  
-  pinMode(encoderRight, INPUT);
-  pinMode(encoderRightin, INPUT);
-  pinMode(encoderLeft, INPUT);
-  pinMode(encoderLeftin, INPUT);
-
-  // Interrupts
-  attachInterrupt(digitalPinToInterrupt(encoderRight), handleEncoder1, RISING);
-  attachInterrupt(digitalPinToInterrupt(encoderLeft), handleEncoder2, RISING);
-  // test shit
-  attachInterrupt(digitalPinToInterrupt(encoderRightin), handleEncoder11, RISING);
-  attachInterrupt(digitalPinToInterrupt(encoderLeftin), handleEncoder22, RISING);
-
-}
-
-void loop() {
-//  // put your main code here, to run repeatedly:
-
-//          Test when connected to RPI
-//  if (Serial.available() > 0 ) {
-//    String input = Serial.readStringUntil('\n')
-//  }
-  // String testSerialMessage = "T_-200";
-  // decodeSerial(testSerialMessage);
-  // delay(10000);
-  delay(1000);
-  AngleToRotate(90, -1);
-  delay(100);
-  DistanceToStraight(1000, 1);
-  delay(10000);
-  /*
-  AngleToRotate(10, -1);
-  AngleToRotate(10, -1);
-  AngleToRotate(10, -1);
-  AngleToRotate(10, -1);
-  AngleToRotate(10, -1);
-  AngleToRotate(10, -1);
-  AngleToRotate(10, -1);
-  AngleToRotate(10, -1);
-  */
-
-}
 
 // Functions called during interrupts
 
@@ -189,7 +140,7 @@ float EncodertoDist(int Encoder)
 
 float EncodertoAngle(int Encoder)
 {
-  float angle = Encoder/9.3;
+  float angle = Encoder/200;
   return angle;
 }
 
@@ -203,21 +154,20 @@ void updatePosition(float dist)
 {
   xPos = xPos + dist*cos(thPos*PI/180);
   yPos = yPos + dist*sin(thPos*PI/180);
-  Serial.print("x: ");
-  Serial.print(xPos/1000);
-  Serial.println(" m");
-  Serial.print("y: ");
-  Serial.print(yPos/1000);
-  Serial.println(" m");
+  // Serial.print("x: ");
+  // Serial.print(xPos/1000);
+  // Serial.println(" m");
+  // Serial.print("y: ");
+  // Serial.print(yPos/1000);
+  // Serial.println(" m");
  
 }
 
 void updatePose(float angle)
 {
   thPos = thPos + angle;
-  Serial.print("Current Pose: ");
-  Serial.print(thPos);
-  Serial.println(" degrees");
+  // Serial.print(thPos);
+  // Serial.println(" degrees");
 }
 
 // Straight line movement function
@@ -294,15 +244,17 @@ void DistanceToStraight(int distance, int direction) {
   if(direction == 1){
     MoveStraight(1);
      while(encoderLeftCount < encoderCountsToDist){
-      // Serial.print("Count: ");
-      // Serial.println(encoderLeftCount);
+      //Serial.print("Count: ");
+      //Serial.println(encoderLeftCount);
+      delay(10);
      }
   }
   if(direction == -1){
     MoveStraight(-1);
-     while(encoderLeftCount < encoderCountsToDist){
-      // Serial.print("Count: ");
-      // Serial.println(encoderLeftCount);
+    while(encoderLeftCount < encoderCountsToDist){
+      //Serial.print("Count: ");
+      //Serial.println(encoderLeftCount);
+      delay(10);
      }
   }     
    MoveStraight(0);
@@ -312,7 +264,6 @@ void DistanceToStraight(int distance, int direction) {
    encoderLeftCount = 0; 
   //   return;
 }
-
 
 void AngleToRotate(int angle, int direction) { // direction = 1 = clockwise, direction = -1 = anticlockwise
   // Function converts input angle into motor movement
@@ -325,23 +276,22 @@ void AngleToRotate(int angle, int direction) { // direction = 1 = clockwise, dir
   if (direction == 1) {
     MoveRotate(1);
     while (encoderLeftCount < encodeReq) {
-      // Serial.print("Encoder: ");
-      // Serial.println(encoderLeftCount);
+      //Serial.print("Encoder: ");
+      //Serial.println(encoderLeftCount);
+      delay(10);
     }
     MoveStraight(0);
   }
   if (direction == -1) {
     MoveRotate(-1);
     while (encoderLeftCount < encodeReq) {
-      // Serial.print("Encoder: ");
-      // Serial.println(encoderLeftCount);
+      //Serial.print("Encoder: ");
+      //Serial.println(encoderLeftCount);
+      delay(10);
     }
     MoveStraight(0);
   }
-  MoveStraight(0);
-  delay(1000);
-  float angleRot = EncodertoAngle(encoderLeftCount);  
-  updatePose(angleRot);
+
   encoderLeftCount = 0;
   /*
   //    if (encoderLeftCount >= 200*angle){
@@ -436,4 +386,66 @@ void rotateUntilBallFound(){
 // 2 - go forward until ball is within certain distance
 // 3 - make correctional movements to ensure ball is closest to middle sensor
 
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(9600);
+  // Serial.println("serial test");
+  pinMode(motorRightA, OUTPUT);
+  pinMode(motorRightB, OUTPUT);
+  pinMode(motorLeftA, OUTPUT);
+  pinMode(motorLeftB, OUTPUT);
+  
+  pinMode(encoderRight, INPUT);
+  pinMode(encoderRightin, INPUT);
+  pinMode(encoderLeft, INPUT);
+  pinMode(encoderLeftin, INPUT);
 
+  // Interrupts
+  attachInterrupt(digitalPinToInterrupt(encoderRight), handleEncoder1, RISING);
+  attachInterrupt(digitalPinToInterrupt(encoderLeft), handleEncoder2, RISING);
+  // test shit
+  // attachInterrupt(digitalPinToInterrupt(encoderRightin), handleEncoder11, RISING);
+  // attachInterrupt(digitalPinToInterrupt(encoderLeftin), handleEncoder22, RISING);
+
+}
+
+void loop() {
+  delay(10);
+
+  if (Serial.available()) {
+    String buffer = Serial.readStringUntil('\n');
+    // Read instruction values
+    char instruction; // either R for rotation or T for translation
+    int value_int;
+    int value_decimal;
+    sscanf(buffer.c_str(), "%c_%d.%d", &instruction, &value_int, &value_decimal);
+    
+    // Amount to rotate or translate
+    float value = value_int + (value_decimal / 1000.0);
+    digitalWrite(ledPin, LOW);
+    
+    switch (instruction) {
+        case 'R':
+            AngleToRotate(abs(value), -sgn(value));
+            break;
+        case 'T':
+            DistanceToStraight(abs(value), sgn(value));
+            break;
+        default:
+            Serial.print("Invalid instruction ");
+            Serial.println(instruction);
+            break;
+        }
+    
+    delay(100);
+    digitalWrite(ledPin, HIGH);
+    // Return successful message (or error msg of some kind)
+    Serial.print(instruction);
+    Serial.print("_");
+    Serial.print(value, 3);
+    Serial.println("_COMPLETE");
+  }
+
+  // Serial.println("LOOP");
+
+}

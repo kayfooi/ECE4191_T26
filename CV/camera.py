@@ -348,7 +348,7 @@ def main():
         if not ret:
             break
 
-        detections = model1(frame, conf=0.50, verbose=False)
+        detections = model(frame, conf=0.50, verbose=False)
         frame_with_boxes = draw_boxes(frame, detections)
 
         cv2.imshow('Object Detection', frame_with_boxes)
