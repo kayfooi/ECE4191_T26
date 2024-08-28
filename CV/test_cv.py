@@ -9,38 +9,27 @@ import json
 import time
 import pandas as pd
 import os
-import glob
 
 # import detection algorithms here
 # expecting detection function to take img array and return 2D np array of detected ball image coordinates
 from camera import detect_ball_circularity_no_colour
 from cv_alg_test import detect_tennis_ball
 from cv_alg_test import detect_ball_circularity_colour
-from camera import detect_ball_circularity_no_blue, find_circles_template_match, YOLOv1, YOLOv2
-
-CV_ALGS = [
-    # detect_ball_circularity_no_colour, 
-    # detect_tennis_ball, 
-    # detect_ball_circularity_colour,
-    # detect_ball_circularity_no_blue,
-    # find_circles_template_match,
-    YOLOv1,
-    YOLOv2,
-] # list of alg functions to test
-
-show_each_result = True # display images
-show_each_result_scores = True # annotate images that are shown
-print_each_result = True # print all results to console
+from cv_alg_test import detect_optimized_tennis_ball
+from ai import detect_yolo_centers
+CV_ALGS = [detect_ball_circularity_no_colour, detect_tennis_ball, detect_ball_circularity_colour, detect_optimized_tennis_ball,detect_yolo_centers] # list of alg functions to test
+#CV_ALGS = [detect_yolo_centers] # list of alg functions to test
 
 # Update path to relevant test set
-IMGS_DIR = os.path.join('test_imgs', '2024_08_28')
-# IMGS_DIR = os.path.join('test_imgs', 'blender', 'oneball')
+IMGS_DIR = os.path.join('test_imgs', 'test_images')
 CASE_DIR = os.path.join(IMGS_DIR, 'cases.json')
-# All image files to test
-TEST_FILES = sorted(glob.glob(os.path.join(IMGS_DIR, f'real*.jpg')))
 
+# Define style names and number of tests to run from each (must match file names in test_img folder)
+TEST_STYLES = {
+    'testing':194
+}
 
-def evaluate_detections(detected, true, distance_threshold=40.0):
+def evaluate_detections(detected, true, distance_threshold=50.0):
     """
     Parameters
     ---
@@ -97,7 +86,8 @@ def evaluate_detections(detected, true, distance_threshold=40.0):
 
 if __name__ == "__main__":
     # Show each result with a cv2.imshow call
-    
+    show_each_result = False
+    show_each_result_scores = False
     results = {
         "algorithm":[],
         "avg. time (ms)":[],
@@ -109,8 +99,6 @@ if __name__ == "__main__":
     cases = {}
     with open(CASE_DIR, 'r') as file:
         cases = json.load(file)
-    
-    
 
     # Run each algorithm on all test styles
     for i, alg in enumerate(CV_ALGS):
@@ -121,66 +109,64 @@ if __name__ == "__main__":
         tps_alg = 0
         fps_alg = 0
         alg_time = 0.0
-        alg_tests = len(TEST_FILES) # number of tests
+        alg_tests = 0 # number of tests
         errors = 0
-        for j, fname in enumerate(TEST_FILES):
-            img = cv2.imread(fname)
-            if img is None:
-                continue
-
-            # Run algorithm
-            start_time = time.time()
-            try:
-                det_uv = alg(img)
-            except Exception as e:
-                print(f"Failed on {fname}")
-                print(e)
-                errors += 1
-                
-            end_time = time.time()
-            true_uv = np.array(list(map(lambda b: b["image"], cases[j]["balls"])))
-            tp, fp, fn = evaluate_detections(det_uv, true_uv)
-
-            alg_time += end_time - start_time
-            tps_alg += len(tp)
-            fps_alg += len(fp)
-            fns_alg += len(fn)
-
-            # Displaying results
-            if len(true_uv > 0):
-                    tp_text = f"True positives:\t{len(tp)}/{len(true_uv)}\t{len(tp)/(len(true_uv)) * 100 : .2f}%"
-                    fn_text = f"False negatives:\t{len(fn)}/{len(true_uv)}\t{len(fn)/(len(true_uv)) * 100 : .2f}%"
-            else:
-                tp_text = f"True positives:\t{len(tp)}/{len(true_uv)}\t"
-                fn_text = f"False negatives:\t{len(fn)}/{len(true_uv)}\t"
-                
-            fp_text = f"False positives:\t{len(fp)}"
-
-            if (print_each_result):     
-                print(f"\n    ---- Case: {j:04d} ----")
+        for (j, style) in enumerate(TEST_STYLES.keys()):
+            alg_tests += TEST_STYLES[style]
+            fns_style = 0
+            tps_style = 0
+            fps_style = 0
+            print(f"\n  ---- Style: {style} ----")
+            for k in range(TEST_STYLES[style]):
+                print(f"\n    ---- Case: {k:04d} ----")
+                img = cv2.imread(os.path.join(IMGS_DIR, f'{style}{k:04d}.jpg'))
+                start_time = time.time()
+                try:
+                    det_uv = alg(img)
+                except Exception as e:
+                    print(f"Failed {style}{k:04d}")
+                    print(e)
+                    errors += 1
+                    
+                end_time = time.time()
+                true_uv = np.array(list(map(lambda b: b["image"], cases[k]["balls"])))
+                tp, fp, fn = evaluate_detections(det_uv, true_uv)
+                tp_text = f"True positives:\t{len(tp)}/{len(true_uv)}\t{len(tp)/(len(true_uv)+0.001) * 100 : .2f}%"
+                fp_text = f"False positives:\t{len(fp)}"
+                fn_text = f"False negatives:\t{len(fn)}/{len(true_uv)}\t{len(fn)/(len(true_uv)+0.001) * 100 : .2f}%"
                 print(f"    {tp_text}")
                 print(f"    {fn_text}")
                 print(f"    {fp_text}")
+                fns_style += len(fn)
+                tps_style += len(tp)
+                fps_style += len(fp)
 
+                alg_time += end_time - start_time
+
+                # Toggle these at the start of the funciton to show/hide the labelled image output
+                if show_each_result:
+                    if show_each_result_scores:
+                        for point in tp:
+                            cv2.drawMarker(img, (point[0], point[1]),(0,210,0), markerType=cv2.MARKER_SQUARE)
+                        for point in fp:
+                            cv2.drawMarker(img, (point[0], point[1]),(0,0,255), markerType=cv2.MARKER_TILTED_CROSS)
+                        for point in fn:
+                            cv2.drawMarker(img, (point[0], point[1]),(0,0,255), markerType=cv2.MARKER_TRIANGLE_DOWN)
+                        
+                        cv2.rectangle(img, (0, 0), (260, 37), (0, 0, 0), -1)
+
+                        cv2.putText(img, tp_text.replace('\t', ' '), (0, 10), cv2.FONT_HERSHEY_PLAIN, 1.0, (0, 210, 0), 1)
+                        cv2.putText(img, fp_text.replace('\t', ' '), (0, 22), cv2.FONT_HERSHEY_PLAIN, 1.0, (100, 100, 255), 1)
+                        cv2.putText(img, fn_text.replace('\t', ' '), (0, 34), cv2.FONT_HERSHEY_PLAIN, 1.0, (100, 100, 255), 1)
+
+                    cv2.imshow('Test', img)
+                    cv2.setWindowTitle('Test', f"Case: {style}{k:04d}, Time: {(end_time - start_time )* 1e3 : .3f} msec")
+                    cv2.waitKey(0)
             
-            if show_each_result:
-                if show_each_result_scores:
-                    for point in tp:
-                        cv2.drawMarker(img, (point[0], point[1]),(0,210,0), markerType=cv2.MARKER_SQUARE)
-                    for point in fp:
-                        cv2.drawMarker(img, (point[0], point[1]),(0,0,255), markerType=cv2.MARKER_TILTED_CROSS)
-                    for point in fn:
-                        cv2.drawMarker(img, (point[0], point[1]),(0,0,255), markerType=cv2.MARKER_TRIANGLE_DOWN)
-                    
-                    cv2.rectangle(img, (0, 0), (260, 37), (0, 0, 0), -1)
-
-                    cv2.putText(img, tp_text.replace('\t', ' '), (0, 10), cv2.FONT_HERSHEY_PLAIN, 1.0, (0, 210, 0), 1)
-                    cv2.putText(img, fp_text.replace('\t', ' '), (0, 22), cv2.FONT_HERSHEY_PLAIN, 1.0, (100, 100, 255), 1)
-                    cv2.putText(img, fn_text.replace('\t', ' '), (0, 34), cv2.FONT_HERSHEY_PLAIN, 1.0, (100, 100, 255), 1)
-
-                cv2.imshow('Test', img)
-                cv2.setWindowTitle('Test', f"File: {fname}, Time: {(end_time - start_time )* 1e3 : .3f} msec")
-                cv2.waitKey(0)
+            print(f"\n  {style} accuracy:\t{tps_style}/{fns_style+tps_style}\t{tps_style/(fns_style+tps_style) * 100 : .2f}%")
+            fns_alg += fns_style
+            tps_alg += tps_style
+            fps_alg += fps_style
         
         print(f"\n{alg.__name__} Results:")
         alg_acc = tps_alg/(fns_alg+tps_alg) * 100
