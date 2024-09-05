@@ -4,6 +4,17 @@ from PiicoDev_Unified import *
 # from laser import laser ! to put in thing that wants to run function
 # from time import sleep
 
+# from PiicoDev_VL53L1X import PiicoDev_VL53L1X
+# from time import sleep
+
+# distSensor = PiicoDev_VL53L1X()
+
+# while True:
+#     dist = distSensor.read() # read the distance in millimetres
+#     print(str(dist) + " mm") # convert the number to a string and print
+#     sleep(0.1)
+
+
 
 
 # if distance is b/w 0.5m or 1m, obstacle in the way
