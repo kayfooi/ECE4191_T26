@@ -172,12 +172,11 @@ class DiffDrive:
         enc_l_init = self.motor_left.odo
         enc_r_init = self.motor_right.odo
 
-        # negative offset allows for some overshoot
-        enc_l_final = enc_l_init + enc_l_delta - 50
+        enc_l_final = enc_l_init + enc_l_delta
 
         # sample/timeout parameters
-        timeout = 10 # seconds
-        sample_time = 50e-3 # seconds
+        timeout = 15 # seconds
+        sample_time = 10e-3 # seconds
         max_count = round(timeout/sample_time)
         sample_count = 0
         goal_enc_per_sample = round(sample_time * speed) # desired encoder counts per sample
@@ -240,7 +239,7 @@ class DiffDrive:
             if sample_count == max_count:
                 print("Timeout reached. Terminating drive")
                 break
-            if zero_flag > 1000:
+            if zero_flag > 50:
                 print("Encoders not counting. Terminating drive")
                 break
 
@@ -254,7 +253,7 @@ class DiffDrive:
         self.motor_left.stop()
         self.motor_right.stop()
 
-        time.sleep(0.2) # wait for motors to stop
+        time.sleep(0.5) # wait for motors to stop
 
         return (
             self.motor_left.odo - enc_l_init, # resulting left encoder delta
@@ -280,7 +279,19 @@ class DiffDrive:
             Resulting right wheel movement
         """
         m_to_enc = 3380 # multiplier to convert meters to encoder count
-        ld, rd = self.PID_speed_control(disp * m_to_enc, disp*m_to_enc, speed * m_to_enc)
+        enc_dist = disp * m_to_enc
+
+        offset = speed ** 2 * 1500
+        if disp < 0: offset *= -1
+
+        if abs(enc_dist) - abs(offset) > 200:
+            enc_goal = enc_dist - offset
+        else:
+            enc_goal = enc_dist
+        
+        # print(enc_dist, enc_goal, offset)
+
+        ld, rd = self.PID_speed_control(enc_goal, enc_goal, speed * m_to_enc)
 
         return (ld / m_to_enc, rd / m_to_enc)
     
@@ -303,8 +314,8 @@ class DiffDrive:
             Resulting right wheel movement
         """
         if angle == 0: return (0, 0)
-        deg_to_enc = 7.07 # multiplier to convert degrees to encoder count
-        ang_enc = angle * deg_to_enc
+        deg_to_enc = 8.5 # multiplier to convert degrees to encoder count
+        ang_enc = angle * deg_to_enc - 70
         ld, rd =self.PID_speed_control(ang_enc, -ang_enc, speed * deg_to_enc)
         
         return (ld / deg_to_enc, rd / deg_to_enc)
@@ -315,28 +326,30 @@ if __name__ == "__main__":
 
     # diff_drive.test_drive()
 
+    time.sleep(1.5)
+
     # drive motors for 1.0m forward
-    left, right = diff_drive.translate(1.0, 0.5)
+    left, right = diff_drive.translate(-1.0, 0.4)
     print(f'Motor left drove: {left:.5f} m')
     print(f'Motor right drove: {right:.5f} m')
 
     time.sleep(0.5)
 
     # drive motors for 0.5m reverse
-    left, right = diff_drive.translate(-1.0, 0.3)
-    print(f'Motor left drove: {left:.5f} m')
-    print(f'Motor right drove: {right:.5f} m')
+    # left, right = diff_drive.translate(0.1, 0.2)
+    # print(f'Motor left drove: {left:.5f} m')
+    # print(f'Motor right drove: {right:.5f} m')
 
-    time.sleep(0.5)
+    # time.sleep(0.5)
 
-    # rotate 90deg anticlockwise
-    left, right = diff_drive.rotate(90, 90)
+    # # rotate 90deg anticlockwise
+    left, right = diff_drive.rotate(360, 30)
     print(f'Motor left drove: {left:.5f} deg')
     print(f'Motor right drove: {right:.5f} deg')
 
     time.sleep(0.5)
 
     # rotate 90deg clockwise
-    left, right = diff_drive.rotate(-90, 90)
+    left, right = diff_drive.rotate(-360, 30)
     print(f'Motor left drove: {left:.5f} deg')
     print(f'Motor right drove: {right:.5f} deg')
