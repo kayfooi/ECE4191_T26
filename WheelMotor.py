@@ -175,7 +175,7 @@ class DiffDrive:
         enc_l_final = enc_l_init + enc_l_delta
 
         # sample/timeout parameters
-        timeout = 15 # seconds
+        timeout = abs(enc_l_delta) / speed + 1.5 # seconds
         sample_time = 10e-3 # seconds
         max_count = round(timeout/sample_time)
         sample_count = 0
@@ -245,8 +245,8 @@ class DiffDrive:
 
             # Debugging statements
             # print("Odo: ", self.motor_left.odo,"Goal: ", enc_l_final)
-            print("Duty Cycles (L, R):", dutyL, dutyR)
-            print("Counts per sample (L, R): ", enc_l_speed, enc_r_speed)
+            # print("Duty Cycles (L, R):", dutyL, dutyR)
+            # print("Counts per sample (L, R): ", enc_l_speed, enc_r_speed)
 
 
         # turn off PWM
@@ -328,28 +328,28 @@ if __name__ == "__main__":
 
     time.sleep(1.5)
 
-    # drive motors for 1.0m forward
-    left, right = diff_drive.translate(-1.0, 0.4)
+    # drive motors for forward
+    left, right = diff_drive.translate(0.5, 0.4)
     print(f'Motor left drove: {left:.5f} m')
     print(f'Motor right drove: {right:.5f} m')
 
     time.sleep(0.5)
 
     # drive motors for 0.5m reverse
-    # left, right = diff_drive.translate(0.1, 0.2)
-    # print(f'Motor left drove: {left:.5f} m')
-    # print(f'Motor right drove: {right:.5f} m')
+    left, right = diff_drive.translate(-0.5, 0.2)
+    print(f'Motor left drove: {left:.5f} m')
+    print(f'Motor right drove: {right:.5f} m')
 
-    # time.sleep(0.5)
+    time.sleep(0.5)
 
     # # rotate 90deg anticlockwise
-    left, right = diff_drive.rotate(360, 30)
+    left, right = diff_drive.rotate(180, 30)
     print(f'Motor left drove: {left:.5f} deg')
     print(f'Motor right drove: {right:.5f} deg')
 
     time.sleep(0.5)
 
     # rotate 90deg clockwise
-    left, right = diff_drive.rotate(-360, 30)
+    left, right = diff_drive.rotate(-180, 30)
     print(f'Motor left drove: {left:.5f} deg')
-    print(f'Motor right drove: {right:.5f} deg')
+    print(f'Motor right drove: {right:.4f} deg')
