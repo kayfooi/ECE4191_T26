@@ -3,15 +3,28 @@ import unittest
 import cv2
 import time
 from camera import Camera
-from WheelMotor import DiffDrive
-import pigpio
+import io
+
+try:
+    import pigpio
+    from WheelMotor import DiffDrive
+    on_pi = True
+except ImportError:
+    print("pigpiod library not found. Continuing tests with no pi")
+    on_pi = False
+
 
 class Robot:
     def __init__(self,init_pos = np.array([0.0, 0.0]), init_th = 0):
         self.pos = init_pos
         self.th = init_th
-        self.pi = None # pigpio.pi()
-        self.dd = None # DiffDrive(self.pi)
+        if on_pi:
+            self.pi = pigpio.pi()
+            self.dd = DiffDrive(self.pi)
+        else:
+            self.pi = None # 
+            self.dd = None # 
+        
         self.camera = Camera(False)
         
     def rotate(self, angle, speed=20):
@@ -24,13 +37,12 @@ class Robot:
         speed: rotational speed in degrees per second
         """
         # Send rotation instruction
-        rotation_left, rotation_right = self.dd.rotate(angle, speed)
-    
-        # Stop the robot if big error for now
-        # assert abs(rotation - angle) < 5.0, "Rotation error too large. Aborting!"
-
-        # Update State
-        self.th += (rotation_left + rotation_right) / 2
+        if on_pi:
+            rotation_left, rotation_right = self.dd.rotate(angle, speed)
+            self.th += (rotation_left + rotation_right) / 2
+        else:
+            self.th += angle + np.random.random() * 2 - 1
+        
 
     
     def translate(self, displacement, speed=0.3):
@@ -43,21 +55,30 @@ class Robot:
         speed: speed in meters per second
         """
         # Send translation instruction
-        disp_left, disp_right = self.dd.translate(displacement, speed)
-        avg_disp = (disp_left + disp_right )/ 2
-        
-        # Big Error
-        if abs(avg_disp - displacement) > 0.1:
-            print(f"Translation error large: {avg_disp - displacement:.3f} m")
-        if abs(avg_disp - disp_left) > 0.05 or abs(avg_disp - disp_right) > 0.05:
-            print(f"Large variance between left ({disp_left:.3f} m) and right ({disp_right:.3f} m) motor displacement")
+        if on_pi:
+            disp_left, disp_right = self.dd.translate(displacement, speed)
+            avg_disp = (disp_left + disp_right )/ 2
+            
+            # Big Error
+            if abs(avg_disp - displacement) > 0.1:
+                print(f"Translation error large: {avg_disp - displacement:.3f} m")
+            if abs(avg_disp - disp_left) > 0.05 or abs(avg_disp - disp_right) > 0.05:
+                print(f"Large variance between left ({disp_left:.3f} m) and right ({disp_right:.3f} m) motor displacement")
 
-        # Update position coordinates
-        th_rad = np.radians(self.th)
-        self.pos += np.array([
-            avg_disp * np.cos(th_rad),
-            avg_disp * np.sin(th_rad)
-        ])
+            # Update position coordinates
+            th_rad = np.radians(self.th)
+            self.pos += np.array([
+                avg_disp * np.cos(th_rad),
+                avg_disp * np.sin(th_rad)
+            ])
+        else:
+            th_rad = np.radians(self.th)
+            avg_disp = displacement + 0.05 * np.random.random() - 0.025
+            self.pos += np.array([
+                avg_disp * np.cos(th_rad),
+                avg_disp * np.sin(th_rad)
+            ])
+
     
     def travelTo(self, p, rspeed=20.0, tspeed=0.3, complete=1.0):
         """
@@ -136,7 +157,7 @@ class Robot:
             Array of detected ball locations in 2D world coordinates
         """
         relative_pos = self.camera.detectBalls(img)
-        ball_locs = self._getRotationMatrix() @ relative_pos + self.pos
+        ball_locs = relative_pos @ self._getRotationMatrix().T + self.pos
         return ball_locs
 
 
@@ -148,17 +169,22 @@ class TestBot(unittest.TestCase):
     def setUp(self):
         self.bot = Robot()
 
-    # def test_rotation_translation(self):
-    #     self.pos = self.init_pos.copy()
-    #     self.bot.th = 0
-    #     rotation = 45
-    #     self.bot.rotate(rotation)
-    #     distance = np.sqrt(2)
-    #     self.bot.translate(distance)
-    #     np.testing.assert_allclose(self.bot.pos, np.array([1., 1.]))
+    def test_rotation_translation(self):
+        init_pos = self.bot.pos.copy()
 
-    #     self.assertAlmostEqual(self.bot.calculateDistance(self.init_pos), distance)
-    #     self.assertAlmostEqual(abs(self.bot.calculateRotationDelta(self.init_pos)), 180)
+        rotation = 45
+        self.bot.rotate(rotation)
+        distance = np.sqrt(0.3**2 + 0.3**2)
+        self.bot.translate(distance)
+        
+        np.testing.assert_allclose(self.bot.pos, np.array([0.3, 0.3]), atol=5e-2)
+        self.assertLess(abs(self.bot.calculateDistance(init_pos)-distance), 0.1)
+        self.assertLess(abs(abs(self.bot.calculateRotationDelta(init_pos))-180), 0.1)
+    
+    def test_travel_to(self):
+        target = np.array([3, 4])
+        self.bot.travelTo(target)
+        np.testing.assert_allclose(self.bot.pos, target, atol=1e-1)
 
     def test_rotation_delta(self):
         a = np.vstack(np.radians(np.arange(0, 361, 45)))
@@ -175,8 +201,14 @@ class TestBot(unittest.TestCase):
         # Rotates points from camera coordinates to world coordinates
         R = self.bot._getRotationMatrix()
         np.testing.assert_allclose(R @ point, np.array([0., 2.]), atol=1e-7)
-        # self.bot.
-        
+    
+    def test_ball_detection(self):
+        # Open image(s) and pass to function
+        img = cv2.imread('CV/test_imgs/test_images/testing0001.jpg')
+        res = self.bot.detectBalls(img)
+        np.testing.assert_allclose(res, np.array([
+            [0.071, 0.91]
+        ]), atol=0.005)
 
 if __name__ == '__main__':
     unittest.main()

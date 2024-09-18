@@ -22,6 +22,7 @@ from robot import Robot
 
 COMPETITION_DURATION = 60*5 # seconds
 DUMP_TIME = 60 # seconds remaining to dump balls
+BALL_CAPACITY = 4
 
 # Initialise world with relevant quadrant number
 W = World(4)
@@ -53,7 +54,11 @@ while W.getElapsedTime() < COMPETITION_DURATION:
         # Double check existence of ball
         balls = R.detectBalls()
         for b in balls:
-            W.addBall(b)
+            if W.is_point_in_quad(b):
+                W.addBall(b)
+            else:
+                print("Ball at {b} not in our quadrant")
+        
         target_checked = W.getClosestBall(R)
         rotation = R.calculateRotationDelta(target_checked)
         
@@ -69,7 +74,7 @@ while W.getElapsedTime() < COMPETITION_DURATION:
         if consecutive_rotations == 0:
             if W.is_rotation_sensible(rotation_increment, R):
                 rotation_direction = 1
-            if W.is_rotation_sensible(-rotation_increment, R):
+            elif W.is_rotation_sensible(-rotation_increment, R):
                 rotation_direction = -1
             else:    
                 vp_idx = (vp_idx + 1) % len(W.vantage_points)
@@ -84,7 +89,8 @@ while W.getElapsedTime() < COMPETITION_DURATION:
             vp_idx = (vp_idx + 1) % len(W.vantage_points)
             R.travelTo(W.vantage_points[vp_idx])
     
-    if collected_balls == 4 or (COMPETITION_DURATION - W.getElapsedTime()) < DUMP_TIME:
+    # Navigate to box
+    if collected_balls == BALL_CAPACITY or (COMPETITION_DURATION - W.getElapsedTime()) < DUMP_TIME:
         # 5. TODO: Navigate to and reverse up to the box
         ...
 

@@ -4,6 +4,7 @@ Represents the map of the court
 
 import numpy as np
 import time
+import unittest
 
 QUAD_WIDTH = 4.11 # width of all quadrant
 NETLINE = 6.40 # y distance from net to center line
@@ -73,16 +74,50 @@ class World:
     def getElapsedTime(self):
         return time.time() - self.init_time
 
-    def getClosestBall(self, bot):
+    def getDistancesToBalls(self, loc):
+        return np.linalg.norm(np.array(self.balls) - loc, axis=1).reshape((-1))
+
+    def getClosestBall(self, pos):
         if len(self.balls) > 0:
-            return min(np.linalg.norm(self.balls - bot.pos))
+            min_idx = np.argmin(self.getDistancesToBalls(pos))
+            return self.balls[min_idx]
         else:
             return None
 
-    def addBalls(self, ball):
-        # TODO: handle potential duplicates
-        self.balls.append(ball)
+    def addBall(self, ball, pos):
+        """
+        Record a ball's location in the world state
 
+        Parameters
+        ---
+        ball: ArrayLike
+            2D world coordinate of ball
+        
+        pos: ArrayLike
+            2D world coordinate of bot
+        
+        Returns
+        ---
+        duplicateFound: bool
+            Whether the ball has been seen before
+        """
+        if len(self.balls) == 0:
+            self.balls.append(ball)
+            return False # no duplicate found
+        
+        # threshold dependent on distance to ball
+        duplicate_threshold = min(0.05, np.linalg.norm(ball-pos) * 0.05)
+
+        # distance between all detected balls and new ball
+        distances = self.getDistancesToBalls(ball)
+
+        mindist = np.argmin(distances)
+        if distances[mindist] < duplicate_threshold:
+            self.balls[mindist] = ball # replace duplciate ball
+            return True # duplicate found
+        else:
+            self.balls.append(ball) # add new ball
+            return False # no duplicate found
     
     def is_rotation_sensible(self, r, b):
         """
@@ -116,6 +151,42 @@ class World:
         plt.plot(vps[:, 0], vps[:, 1], marker='x', linestyle='None', label=f'Quadrant {q}', color=c)
 
 
+class TestBot(unittest.TestCase):
+    """
+    Test Camera specific functions
+    """
+    def setUp(self):
+        self.W = World(4)
+
+    def test_balls(self):
+        # addBall returns true if duplicate is found, false otherwise
+        self.assertFalse(self.W.addBall(np.array([1, 1]), np.array([0, 0])))
+        self.assertFalse(self.W.addBall(np.array([2, 2]), np.array([0, 0])))
+        self.assertTrue(self.W.addBall(np.array([2.05, 2]), np.array([0, 0])))
+        self.assertFalse(self.W.addBall(np.array([2.11, 2]), np.array([1.5, 2])))
+        self.assertEqual(len(self.W.balls), 3)
+
+        # test closest ball
+        np.testing.assert_array_equal(self.W.balls[0], self.W.getClosestBall(np.array((0.5, 0.5))))
+        np.testing.assert_array_equal(self.W.balls[2], self.W.getClosestBall(np.array((2.10, 2))))
+
+    def test_is_ball_in_quad(self):
+        q1 = World(1)
+        q2 = World(2)
+        q3 = World(3)
+        q4 = World(4)
+
+        self.assertTrue(q1.is_point_in_quad(np.array((1, 1))))
+        self.assertTrue(q2.is_point_in_quad(np.array((-1, 1))))
+        self.assertTrue(q3.is_point_in_quad(np.array((-1, -1))))
+        self.assertTrue(q4.is_point_in_quad(np.array((1, -1))))
+
+        self.assertFalse(q1.is_point_in_quad(np.array((-1, 1))))
+        self.assertFalse(q2.is_point_in_quad(np.array((1, 1))))
+        self.assertFalse(q3.is_point_in_quad(np.array((1, -1))))
+        self.assertFalse(q4.is_point_in_quad(np.array((-1, -1))))
+
+
 if __name__ == "__main__":
     from matplotlib import pyplot as plt
     
@@ -141,4 +212,7 @@ if __name__ == "__main__":
     
     plt.axis('equal')
     plt.legend()
-    plt.show()
+    # plt.show()
+
+    unittest.main()
+

@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 import time
 import unittest
+# import torch
 from ultralytics import YOLO
 
 class Camera:
@@ -26,7 +27,7 @@ class Camera:
             self.cap = None
 
         # Load ball detection model Model
-        self.model = YOLO("CV/YOLOv2.pt")
+        self.model = YOLO('CV/YOLO_ball_detection.pt', verbose=True)
 
         # Homography that transforms image coordinates to world coordinates
         self._H = np.array([
@@ -36,15 +37,17 @@ class Camera:
         ])
     
     def __del__(self):
-        self.cap.release()
+        if self.cap is not None:
+            self.cap.release()
 
     def capture(self):
         """
         Capture frame from camera
         """
-        ret, img = self.cap.read()
-        if ret:
-             return img
+        if self.cap is not None:
+            ret, img = self.cap.read()
+            if ret:
+                return img
         else:
              print("Image not captured")
              return None
@@ -161,12 +164,14 @@ class TestBot(unittest.TestCase):
         self.cam = Camera(False)
 
     def test_image_to_world(self):
-        img_c = np.array([100, 100])
+        img_c = np.array([[100, 100]])
         self.cam.image_to_world(img_c)
 
     def test_YOLO_model(self):
         # Open image(s) and pass to model
-        ...
+        img = cv2.imread('CV/test_imgs/test_images/testing0001.jpg')
+        res = self.cam.apply_YOLO_model(img)
+        print(res)
 
     def test_ball_detection(self):
         # Open image(s) and pass to function
