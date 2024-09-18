@@ -5,6 +5,8 @@ import time
 from camera import Camera
 import io
 
+
+
 try:
     import pigpio
     from WheelMotor import DiffDrive
@@ -13,6 +15,11 @@ except ImportError:
     print("pigpiod library not found. Continuing tests with no pi")
     on_pi = False
 
+if on_pi:
+    from rPi_sensor import laser
+    tof = laser.PiicoDev_VL53L1X
+else:
+    tof = None
 
 class Robot:
     def __init__(self,init_pos = np.array([0.0, 0.0]), init_th = 0):
