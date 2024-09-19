@@ -1,0 +1,14 @@
+description: Ultralytics YOLO_ball_detection model trained on data.yaml
+author: Ultralytics
+date: '2024-09-19T10:32:27.238450'
+version: 8.2.79
+license: AGPL-3.0 License (https://ultralytics.com/license)
+docs: https://docs.ultralytics.com
+stride: 32
+task: detect
+batch: 1
+imgsz:
+- 640
+- 640
+names:
+  0: tennis-ball
