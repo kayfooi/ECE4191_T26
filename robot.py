@@ -24,7 +24,7 @@ else:
 class Robot:
     def __init__(self,init_pos = np.array([0.0, 0.0]), init_th = 0):
         self.pos = init_pos
-        self.th = init_th
+        self.th = init_th.astype(np.float64)
         if on_pi:
             self.pi = pigpio.pi()
             self.dd = DiffDrive(self.pi)
@@ -33,7 +33,10 @@ class Robot:
             self.dd = None # 
         
         self.camera = Camera(False)
-        
+    
+    def is_on_pi(self):
+        return on_pi
+    
     def rotate(self, angle, speed=20):
         """
         Rotate anti-clockwise  
@@ -48,7 +51,8 @@ class Robot:
             rotation_left, rotation_right = self.dd.rotate(angle, speed)
             self.th += (rotation_left + rotation_right) / 2
         else:
-            self.th += angle + np.random.random() * 2 - 1
+            noise = 2 # magnitude of randomness (simulation)
+            self.th += angle + np.random.random() * noise - noise/2
         
 
     
@@ -80,7 +84,8 @@ class Robot:
             ])
         else:
             th_rad = np.radians(self.th)
-            avg_disp = displacement + 0.05 * np.random.random() - 0.025
+            noise = 0.05
+            avg_disp = displacement + noise * np.random.random() - noise/2
             self.pos += np.array([
                 avg_disp * np.cos(th_rad),
                 avg_disp * np.sin(th_rad)
@@ -111,7 +116,7 @@ class Robot:
         """
         Get 2D rotation matrix from bot orientation
         """
-        th_rad = np.radians(self.th)
+        th_rad = np.radians(self.th - 90)
         return np.array([
             [np.cos(th_rad), -np.sin(th_rad)],
             [np.sin(th_rad), np.cos(th_rad)]
@@ -163,9 +168,22 @@ class Robot:
         balls_locs ArrayLike
             Array of detected ball locations in 2D world coordinates
         """
+
+        # TODO: when calibrating camera again, ensure world coordinates are relative to bot facing 0 deg
         relative_pos = self.camera.detectBalls(img)
         ball_locs = relative_pos @ self._getRotationMatrix().T + self.pos
         return ball_locs
+
+    def plot_bot(self, ax):
+        """
+        Show bot on ax
+        """
+        arrow_size = 0.2
+        heading = np.radians(self.th)
+        ax.arrow(self.pos[0], self.pos[1], 
+                 arrow_size*np.cos(heading), 
+                 arrow_size*np.sin(heading), 
+                 color='k', width=arrow_size/3.5, label=None)
 
 
 

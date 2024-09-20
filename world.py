@@ -48,6 +48,7 @@ class World:
     """
     def __init__(self, quadrant:int):
         self.balls = []
+        self.target_ball_idx = None
         self.quadrant = QUADRANTS[quadrant-1]
         self.init_time = time.time()
 
@@ -80,9 +81,9 @@ class World:
     def getClosestBall(self, pos):
         if len(self.balls) > 0:
             min_idx = np.argmin(self.getDistancesToBalls(pos))
-            return self.balls[min_idx]
+            return self.balls[min_idx], min_idx
         else:
-            return None
+            return None, None
 
     def addBall(self, ball, pos):
         """
@@ -101,12 +102,17 @@ class World:
         duplicateFound: bool
             Whether the ball has been seen before
         """
+        if not self.is_point_in_quad(ball):
+            return None
+        
         if len(self.balls) == 0:
             self.balls.append(ball)
             return False # no duplicate found
         
+        ball_distance = np.linalg.norm(ball-pos)
+
         # threshold dependent on distance to ball
-        duplicate_threshold = min(0.05, np.linalg.norm(ball-pos) * 0.05)
+        duplicate_threshold = min(0.05, ball_distance * 0.05)
 
         # distance between all detected balls and new ball
         distances = self.getDistancesToBalls(ball)
@@ -118,6 +124,10 @@ class World:
         else:
             self.balls.append(ball) # add new ball
             return False # no duplicate found
+    
+    def collectTarget(self):
+        self.balls.pop(self.target_ball_idx)
+        self.target_ball_idx = None
     
     def is_rotation_sensible(self, r, b):
         """
@@ -143,17 +153,28 @@ class World:
         for vline in [-QUAD_WIDTH, 0, QUAD_WIDTH]:
             ax.plot([vline]*2, [NETLINE, -BASELINE], 'k-', label=None, linewidth=1.5)
     
-    def plot_vps(self, ax, c='k'):
+    def plot_vps(self, ax, c='lightgrey'):
         """
         Plots vantage points onto ax
         """
-        vps = w.vantage_points
-        plt.plot(vps[:, 0], vps[:, 1], marker='x', linestyle='None', label=f'Quadrant {q}', color=c)
+        vps = self.vantage_points
+        ax.plot(vps[:, 0], vps[:, 1], marker='x', markersize=5, linestyle='None', label='Vantage Point', color=c)
+    
+    def plot_balls(self, ax):
+        """
+        Plots detected balls
+        """
+        bs = np.array(self.balls)
+        if (len(bs) > 0):
+            ax.plot(bs[:, 0], bs[:, 1], marker='o', markersize=5, linestyle='None', label='Tennis Ball', color='greenyellow')
+            if self.target_ball_idx is not None: 
+                target = self.balls[self.target_ball_idx]
+                ax.plot(target[0], target[1], marker='+', markersize=7, linestyle='None', label='Target', color='r')
 
 
-class TestBot(unittest.TestCase):
+class TestWorld(unittest.TestCase):
     """
-    Test Camera specific functions
+    Test World specific functions
     """
     def setUp(self):
         self.W = World(4)
@@ -185,6 +206,8 @@ class TestBot(unittest.TestCase):
         self.assertFalse(q2.is_point_in_quad(np.array((1, 1))))
         self.assertFalse(q3.is_point_in_quad(np.array((1, -1))))
         self.assertFalse(q4.is_point_in_quad(np.array((-1, -1))))
+    
+
 
 
 if __name__ == "__main__":
