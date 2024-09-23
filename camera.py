@@ -2,8 +2,7 @@ import numpy as np
 import cv2
 import time
 import unittest
-# import torch
-from ultralytics import YOLO
+import ncnn # faster/lighter than ultralytics and torch
 
 class Camera:
     """
@@ -20,14 +19,22 @@ class Camera:
             self.cap = cv2.VideoCapture(-1, cv2.CAP_V4L)
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-            self.cap.set(cv2.CAP_PROP_FPS, 25)
-            # TODO: set autoexposure settings
-            time.sleep(0.5)
+            self.cap.set(cv2.CAP_PROP_FPS, 30)
+
+            # Default buffer size is 4, changes to brightness might not be observed until 4 frames are read
+            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+            # NOTE: I don't think our camera has exposure settings
+            # set the brightness instead (in range -255 to +255)
+            self.cap.set(cv2.CAP_PROP_BRIGHTNESS, -50)
+            time.sleep(0.1)
         else:
             self.cap = None
 
-        # Load ball detection model Model
-        self.model = YOLO('CV/YOLO_ball_detection.pt', verbose=True)
+        # Load ball detection model
+        self.model = ncnn.Net()
+        self.model.load_param("./CV/YOLO_ball_detection_ncnn_model/model.ncnn.param")
+        self.model.load_model("./CV/YOLO_ball_detection_ncnn_model/model.ncnn.bin")
 
         # Homography that transforms image coordinates to world coordinates
         self._H = np.array([
@@ -52,25 +59,79 @@ class Camera:
              print("Image not captured")
              return None
     
-    def apply_YOLO_model(self, img):
-        # Predict with the model
-        
-        image = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    def apply_YOLO_model(self, image):
+        """
+        Apply YOLO model to get locations of balls
+        """
+        # Preprocessing
+        height, width, _ = image.shape
+        img_proc = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        results = self.model(image, conf=0.50, verbose=False)  # predict on an image
+        img = image.copy()
+        shape = img.shape[:2]  # current shape [height, width]
+        new_shape = (640, 640)
 
+        # Scale ratio (new / old)
+        r = min(new_shape[0] / shape[0], new_shape[1] / shape[1])
+
+        # Compute padding
+        stride = 32
+        ratio = r, r  # width, height ratios
+        new_unpad = int(round(shape[1] * r)), int(round(shape[0] * r))
+        dw, dh = new_shape[1] - new_unpad[0], new_shape[0] - new_unpad[1]  # wh padding
+
+        dw /= 2  # divide padding into 2 sides
+        dh /= 2
+
+        if shape[::-1] != new_unpad:  # resize
+            img = cv2.resize(img, new_unpad, interpolation=cv2.INTER_LINEAR)
+        top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
+        left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
+        img = cv2.copyMakeBorder(
+            img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114)
+        )  # add border
+
+        im = np.stack([img])
+        im = im[..., ::-1].transpose((0, 3, 1, 2))  # BGR to RGB, BHWC to BCHW, (n, 3, h, w)
+        in0 = np.ascontiguousarray(im/255).astype(np.float32)  # contiguous
+
+        # Prepare input
+        mat_in = ncnn.Mat(in0)
+
+        # Run inference
+        extractor = self.model.create_extractor()
+        extractor.input("in0", mat_in)
+        ret, mat_out = extractor.extract("out0")
+        out = np.array(mat_out)
         points = []
-        # Process results list
-        for result in results:
-            boxes = result.boxes  # Boxes object for bounding box outputs
-            for b in boxes:
-                d = b.xywh[0]
-                # points.append([d[])
-                points.append([d[0], d[1] + d[3]/2])
-            # result.show()  # display to screen
-            # result.save(filename="result.jpg")  # save to disk
 
-        # TODO: Filter out invlalid detections based on box size
+        # Process results (find the max)
+        for i in range(mat_out.w):
+            detection = out[:, i]
+            scores = detection[4:]
+            class_id = np.argmax(scores)
+            confidence = scores[class_id]
+            
+            if confidence > 0.6:
+                # Object detected
+                # TODO: Filter out invalid detections based on box size
+                xywh = detection[:4] / 640 # Centered coordinates
+                y = detection[1]
+                y = (y - top) / (640 - top - bottom)
+                
+                x = int(xywh[0] * width)
+                y = int(y * height + xywh[3] * width * 0.5)
+                
+                # Check if it already exists
+                duplicate = False
+                for p in points:
+                    if (p[0] - x) ** 2 + (p[1] - y)**2 < 5:
+                        duplicate = True
+                        break # don't add duplicate points
+                
+                if not duplicate:
+                    points.append([x, y])
+
         points = np.array(points)
         return points.astype(int)
 
@@ -156,22 +217,44 @@ class Camera:
 
 
 
-class TestBot(unittest.TestCase):
+class TestCamera(unittest.TestCase):
     """
     Test Camera specific functions
     """
     def setUp(self):
-        self.cam = Camera(False)
+        self.startTime = time.time()
+
+    def tearDown(self):
+        t = time.time() - self.startTime
+        print('%s: %.3f' % (self.id(), t))
 
     def test_image_to_world(self):
+        self.cam = Camera(False) # no camera
         img_c = np.array([[100, 100]])
         self.cam.image_to_world(img_c)
 
     def test_YOLO_model(self):
         # Open image(s) and pass to model
+        self.cam = Camera(False) # no camera
         img = cv2.imread('CV/test_imgs/test_images/testing0001.jpg')
         res = self.cam.apply_YOLO_model(img)
         print(res)
+
+    def test_capture(self):
+        self.cam = Camera(True)
+        self.startTime = time.time()
+        img = self.cam.capture()
+        if img is not None:
+            cv2.imwrite("result.jpg", img)
+        self.assertTrue(img is not None, "Camera did not capture anything")
+        for i in range(0, 10):
+            s = time.time()
+            img = self.cam.capture()
+            if img is not None:
+                cv2.imwrite(f"./test_results/result{i}.jpg", img)
+            e = time.time()
+            print(f"Frame {i}: {(e-s)*1e3:.2f} msec")
+
 
     def test_ball_detection(self):
         # Open image(s) and pass to function
@@ -184,7 +267,7 @@ class TestBot(unittest.TestCase):
     def test_box_detection(self):
         # Open images and pass to function
         ...
-        
 
 if __name__ == '__main__':
-    unittest.main()
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestCamera)
+    unittest.TextTestRunner(verbosity=0).run(suite)
