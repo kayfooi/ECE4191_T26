@@ -1,35 +1,43 @@
 from time import sleep
-import machine
+# import machine
 
 #with rpigpio library
 import pigpio
 
-IR_in = 11 #pin number signal
-IR_out = 13 #pin number LED
+pi = pigpio.pi()
+IR__ball_detect_in = 5 # GPIO Number for IR Sensor (S pin)
+pi.set_mode(IR__ball_detect_in, pigpio.INPUT)
 
-pi.set_mode(IR_in, pigpio.INPUT)
-pi.set_mode(IR_out, pigpio.OUTPUT)
+#testing IR
+while True:
+    IR_signal = pi.read(IR__ball_detect_in)
 
-IR_signal = pi.read(IR_in)
-pi.write(IR_out, 1) #sets LED high
+    if IR_signal == 0:
+        print("Detected")
+    else:
+        print("Not Detected")
+    
+    sleep(0.2)
+
+
 
 def IR_init(IR_in, IR_out): 
     for pins_in in IR_in:
-        pi.set_mode(pins_in, pigpio.INPUT)
+        pigpio.pi.set_mode(pins_in, pigpio.INPUT)
 
 
     for pins_out in IR_out:
-        pi.set_mode(pins_out, pigpio.OUTPUT)
+        pigpio.pi.set_mode(pins_out, pigpio.OUTPUT)
 
 def IR_read(IR_in, IR_out):
     for i in IR_in:
-        IR_signal.append(pi.read(i))
+        IR_signal.append(pigpio.pi.read(i))
     for i in IR_out:
         
         if IR_signal[IR_out.index(i)] == 0:
-            pi.write(i, 1)
+            pigpio.pi.write(i, 1)
         else:
-            pi.write(i, 0)
+            pigpio.pi.write(i, 0)
         
 
 
