@@ -235,5 +235,8 @@ class TestBot(unittest.TestCase):
             [0.071, 0.91]
         ]), atol=0.005)
 
+    def test_dump_balls(self):
+        
+
 if __name__ == '__main__':
     unittest.main()
