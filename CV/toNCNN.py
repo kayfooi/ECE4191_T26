@@ -1,6 +1,11 @@
+"""
+NCNN is a lighter neural network library that loads a lot faster than torch/ultralytics
+Convert/test YOLO model here
+"""
 import time
 import cv2
 import numpy as np
+import timeit
 
 t = time.time()
 from ultralytics import YOLO
@@ -12,8 +17,21 @@ ncnn_model = YOLO("./YOLO_ball_detection_ncnn_model", task="detect")
 # print(f'YOLO Model loaded in {time.time()-t-e} seconds.')
 
 # # Run inference
+t = time.time()
 results = ncnn_model("./test_imgs/test_images/testing0000.jpg")
-print(results[0].boxes[0].xyxy)
+# print(results[0].boxes[0].xyxy)
+e = time.time()
+print(f'Ultralytics NCNN YOLO inferred in {e - t} seconds.')
+
+# Load the OG YOLO model
+ncnn_model = YOLO("YOLO_ball_detection.pt")
+
+# # Run inference
+t = time.time()
+results = ncnn_model("./test_imgs/test_images/testing0000.jpg")
+# print(results[0].boxes[0].xyxy)
+e = time.time()
+print(f'Ultralytics YOLO inferred in {e - t} seconds.')
 
 t = time.time()
 import ncnn
@@ -59,16 +77,9 @@ img = cv2.copyMakeBorder(
     img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114)
 )  # add border
 
-# cv2.imshow("img", img)
-# cv2.waitKey(0)
-
 im = np.stack([img])
 im = im[..., ::-1].transpose((0, 3, 1, 2))  # BGR to RGB, BHWC to BCHW, (n, 3, h, w)
 in0 = np.ascontiguousarray(im/255).astype(np.float32)  # contiguous
-
-
-# cv2.imshow('win', image)
-# cv2.waitKey(0)
 
 # Prepare input
 mat_in = ncnn.Mat(in0)
@@ -130,8 +141,9 @@ for i in range(len(boxes)):
 e = time.time()
 print(f'NCNN model load image and inferred in {e-t} seconds.')
 
-cv2.imshow('test',image)
-cv2.waitKey(0)
+# cv2.imshow('test',image)
+# cv2.waitKey(0)
+cv2.imwrite("result.jpg",image)
 
 # # Load a YOLOv8n PyTorch model
 # model = YOLO("YOLO_ball_detection.pt")
