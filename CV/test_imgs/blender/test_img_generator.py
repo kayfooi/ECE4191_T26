@@ -27,8 +27,7 @@ def point_in_camera_view(scene, camera, point):
     cp = world_to_camera_view(scene, camera, point) # camera point
     render = scene.render
     res_x, res_y = render.resolution_x, render.resolution_y
-    # 0.0 < cp.x < 1.0 and 0.0 < cp.y < 1.0 and 
-    if cp.z > 0:
+    if 0.0 < cp.x < 1.0 and 0.0 < cp.y < 1.0 and cp.z > 0:
         return (int(cp.x * res_x), int((1-cp.y) * res_y))
     return (None, None)
 
@@ -73,55 +72,51 @@ def obj_bounding_box(scene, camera, obj):
     return None
     
 
-
-def generate_line_markers():
+COURT_LINES = []
+def calc_court_lines():
     QUAD_WIDTH = 4.11 # width of all quadrant
     NETLINE = 6.40 # y distance from net to center line
     BASELINE = 5.48 # y distance from baseline to center line
     OUTSIDE_WIDTH = 5.44
-    increment = 0.04
-    width = OUTSIDE_WIDTH * 2
-    height = BASELINE * 2
-    col = bpy.data.collections['LineMarker']
-    for lm in col.objects:
-        bpy.data.objects.remove(lm, do_unlink=True)
 
+    # Vertical lines
     for x in [-OUTSIDE_WIDTH ,-QUAD_WIDTH - 0.03, 0, QUAD_WIDTH + 0.03, OUTSIDE_WIDTH]:
-        length = 0.0
-        while length < height + 1.0:
-            o = bpy.data.objects.new( "line-marker", None )
-            col.objects.link(o)
-            # empty_draw was replaced by empty_display
-            o.empty_display_size = 0.2
-            o.empty_display_type = 'PLAIN_AXES'
-            o.location = Vector((x, length - BASELINE + 0.05, 0))
-            length += increment
+        start_y, end_y = -BASELINE + 0.08, BASELINE
+        COURT_LINES.append([[x, start_y], [x, end_y]])
     
+    # Horizontal lines
     for y in [-BASELINE + 0.08, 0, BASELINE]:
-        length = 0.0
-        while length < width:
-            o = bpy.data.objects.new( "line-marker", None )
-            col.objects.link(o)
-            # empty_draw was replaced by empty_display
-            o.empty_display_size = 0.2
-            o.empty_display_type = 'PLAIN_AXES'
-            o.location = Vector((length - OUTSIDE_WIDTH + 0.02, y, 0))
-            length += increment
-    
-    for x in [-OUTSIDE_WIDTH ,-QUAD_WIDTH - 0.03, 0, QUAD_WIDTH + 0.03, OUTSIDE_WIDTH]:
-        for y in [-BASELINE + 0.08, 0, BASELINE]:
-            o = bpy.data.objects.new( "corner-marker", None )
-            bpy.data.collections['CornerMarker'].objects.link(o)
-            # empty_draw was replaced by empty_display
-            o.empty_display_size = 0.2
-            o.empty_display_type = 'PLAIN_AXES'
-            o.location = Vector((x + 0.02, y + 0.02, 0))
+        start_x, end_x = -OUTSIDE_WIDTH, OUTSIDE_WIDTH
+        COURT_LINES.append([[start_x, y], [end_x, y]])
 
-# generate_line_markers()
+calc_court_lines()
+
+def line_intersect(p1, q1, p2, q2):
+    def det(a, b):
+        return a[0] * b[1] - a[1] * b[0]
+
+    xdiff = (p1[0] - q1[0], p2[0] - q2[0])
+    ydiff = (p1[1] - q1[1], p2[1] - q2[1])
+
+    div = det(xdiff, ydiff)
+    if div == 0:
+        return None  # Lines are parallel
+
+    d = (det(p1, q1), det(p2, q2))
+    x = det(d, xdiff) / div
+    y = det(d, ydiff) / div
+
+    # Check if the intersection point is on both line segments
+    if (min(p1[0], q1[0]) <= x <= max(p1[0], q1[0]) and
+        min(p1[1], q1[1]) <= y <= max(p1[1], q1[1]) and
+        min(p2[0], q2[0]) <= x <= max(p2[0], q2[0]) and
+        min(p2[1], q2[1]) <= y <= max(p2[1], q2[1])):
+        return (x, y)
+    return None
 
 
 def change_path(scene, path, IMGTYPES):
-    path = os.path.join('YOLO_lines_boxes', path)
+    path = os.path.join('YOLO_ball_box', path)
     os.makedirs(path, exist_ok=True)
     os.makedirs(os.path.join(path, 'labels'), exist_ok=True)
     os.makedirs(os.path.join(path, 'images'), exist_ok=True)
@@ -173,6 +168,24 @@ def generate_test_cases():
         [250, 245, 230]
     ]) / 255
 
+    CLOTHE_COLORS = np.array([
+        [45, 45, 45],
+        [233, 228, 223],
+        [58, 58, 58],
+        [226, 221, 216],
+        [37, 37, 37],
+        [229, 224, 219],
+        [86, 66, 56],
+        [73, 93, 103],
+        [122, 82, 82],
+        [68, 88, 98]
+    ]) / 255
+
+    LACES_COLOURS = np.array([
+        [10, 10 ,10],
+        [250, 250, 250]
+    ]) / 255
+
     # BALL_BOUNDARY = 1 # allow balls this many meters outside test boundary
     NUM_SCENARIOS = 200
     MIN_FRAME = 200
@@ -180,8 +193,6 @@ def generate_test_cases():
     MAX_BALL_DIST = 4.0
     BALL_DIAMETER = 0.068
     IMGTYPES = ['normal', 'noise']
-
-
 
     objs = bpy.data.objects
     scene = bpy.data.scenes['Scene']
@@ -218,14 +229,8 @@ def generate_test_cases():
         bpy.context.collection.objects.link(ball)
         tennis_balls.append(ball)
     
-    line_markers = []
-    for obj in objs:
-        if 'line-marker.' in obj.name:
-            line_markers.append(obj)
-    
-    corner_markers = bpy.data.collections["CornerMarker"].objects
-    
     cardboard_box = objs['CardboardBox']
+    legs = objs['Legs']
 
     # Generate test images
     for case_id in range(MIN_FRAME, MIN_FRAME + NUM_SCENARIOS):
@@ -238,6 +243,9 @@ def generate_test_cases():
         GREEN = getRandColour(GREENS)
         BLUE = getRandColour(BLUES)
         BROWN = getRandColour(BROWNS)
+        SHOE_COL = getRandColour(CLOTHE_COLORS)
+        PANTS_COL = getRandColour(CLOTHE_COLORS)
+        LACES_COL = getRandColour(LACES_COLOURS)
 
         # frame number is linked to output file names and some randomisation
         scene.frame_set(case_id)
@@ -250,6 +258,9 @@ def generate_test_cases():
         mats["court"].node_tree.nodes["Principled BSDF"].inputs[0].default_value = BLUE # type: ignore
         mats["Base"].node_tree.nodes["Principled BSDF"].inputs[0].default_value = GREEN # type: ignore
         mats["Cardboard"].node_tree.nodes["Principled BSDF"].inputs[0].default_value = BROWN # type: ignore
+        mats["Shoe"].node_tree.nodes["Principled BSDF"].inputs[0].default_value = SHOE_COL # type: ignore
+        mats["Pants"].node_tree.nodes["Principled BSDF"].inputs[0].default_value = PANTS_COL # type: ignore
+        mats["Laces"].node_tree.nodes["Principled BSDF"].inputs[0].default_value = LACES_COL # type: ignore
 
         filenames = [imgtype+f'{case_id:04d}' for imgtype in IMGTYPES]
         if case_id == MIN_FRAME + int(NUM_SCENARIOS * 0.7):
@@ -258,9 +269,9 @@ def generate_test_cases():
             current_label_path = change_path(scene, 'test', IMGTYPES)
 
         # Random Lighting
-        objs["Sun"].data.energy = random.uniform(2, 6) #type:ignore
+        objs["Sun"].data.energy = random.uniform(2, 9) #type:ignore
         objs["Area"].data.energy = random.uniform(800, 2000) #type:ignore
-        objs["Sun"].rotation_euler.x = np.radians(random.uniform(-50, 50))
+        objs["Sun"].rotation_euler.x = np.radians(random.uniform(-60, 60))
         
         if case_id % 5 == 0:
             cam_location = Vector((
@@ -281,6 +292,22 @@ def generate_test_cases():
         camera.rotation_euler = Euler((math.radians(90 - CAMERA_AOD), 0, math.radians(cam_heading)), 'XYZ')
         # camera.keyframe_insert('rotation_euler')
         # camera.keyframe_insert('location')
+
+        # Update legs location every 6 frames
+        if case_id % 6 == 0:
+            leg_angle = cam_heading + random.uniform(-cam_fov / 2 * 0.9, cam_fov / 2 * 0.9)
+            leg_distance = random.uniform(MIN_BALL_DIST + 0.5, MAX_BALL_DIST)
+            leg_heading = random.uniform(0, 359)
+
+            leg_location = Vector((
+                camera.location.x + leg_distance * math.cos(math.radians(leg_angle)),
+                camera.location.y + leg_distance * math.sin(math.radians(leg_angle)),
+                0
+            ))
+
+            legs.location = leg_location
+            legs.rotation_euler = Euler((0, 0, math.radians(leg_heading)), 'XYZ')
+        
 
         ball_info = []
         YOLO_objects = []
@@ -311,12 +338,28 @@ def generate_test_cases():
 
             # Test if ball is visible
             x, y = point_in_camera_view(scene, camera, ball_location)
+
             if  x is not None:
+
+                line_intersects = []
+                for l in COURT_LINES:
+                    intersection = line_intersect(
+                        [camera.location.x, camera.location.y], # mid-point at bottom of frame
+                        [ball_location.x, ball_location.y], # ball location in pixel coordinates
+                        l[0], # Court line endpoints
+                        l[1]
+                    )
+                    if intersection is not None:
+                        xint, yint = point_in_camera_view(scene, camera, Vector((intersection[0], intersection[1], 0)))
+                        if xint is not None:
+                            line_intersects.append([xint, yint])
+
                 ball_info.append({
                         "ball_id": ball.name,
                         "world": list(ball_location[:]),
                         "image": [x,y],
-                        "in_bounds": (min_x <= ball_location.x <= max_x) and (min_y <= ball_location.y <= max_y)
+                        "in_bounds": (min_x <= ball_location.x <= max_x) and (min_y <= ball_location.y <= max_y),
+                        "court_line_intersects": line_intersects
                     })
             
                 # Get bounding box for YOLO training data
@@ -326,52 +369,16 @@ def generate_test_cases():
 
                 # YOLO bounding box descriptor in form [class, x, y, width, height]
                 YOLO_objects.append([0, cam_c[0], (1-cam_c[1])*0.961, pixel_width * 1.08, pixel_height * 1.14])
-                
-        # Add bounding boxes around lines
-        line_points = []
-        minx, maxx = 1.0, 0.0
-        miny, maxy = 1.0, 0.0
-        update_matrices(camera)
-        for lm in line_markers:
-            # bb = obj_bounding_box(scene, camera, lm)
-            loc = lm.location
-            c = world_to_camera_view(scene, camera, loc)
-   
-            if 0 < c.x < 1 and 0 < c.y < 1 and 0 < c.z < 5.0:
-                line = None
-                for l in line_points:
-                    if abs(loc.x - l["loc"].x) < 0.001:
-                        line = l
-                    elif abs(loc.y - l["loc"].y) < 0.001:
-                        line = l
-                if line is None:
-                    line = {"loc":loc.copy(), "points":[], "pixel_width":0.01}
-                    line_points.append(line)
-                line["points"].append(c)
-                line["pixel_width"] = BALL_DIAMETER * f_x / c.z * 0.8
-        
-        for l in line_points:
-            ps = np.array(l["points"])
-            minx, maxx = ps[:, 0].min(), ps[:, 0].max()
-            miny, maxy = 1-ps[:, 1].max(), 1-ps[:, 1].min()
-        
-            YOLO_objects.append([1, 
-                                 (minx+maxx)/2, 
-                                 (miny+maxy)/2, 
-                                 maxx-minx, 
-                                 maxy-miny])
-        
-        update_matrices(camera)
-        for cm in corner_markers:
-            c = world_to_camera_view(scene, camera, cm.location)
-            if 0 < c.x < 1 and 0 < c.y < 1 and 0 < c.z < 5.0:
-                width = BALL_DIAMETER * f_x / c.z * 3.0
-                YOLO_objects.append([2, c.x, 1-c.y, width, width*aspect_ratio])
         
         # Add bounding boxes around carboard box
         cardboard_box_bbox = obj_bounding_box(scene, camera, cardboard_box)
         if cardboard_box_bbox is not None:
-            YOLO_objects.append([3] + cardboard_box_bbox)
+            YOLO_objects.append([1] + cardboard_box_bbox)
+
+        # Add bounding boxes around legs box
+        legs_bbox = obj_bounding_box(scene, camera, objs["LegsBbox"])
+        if legs_bbox is not None:
+            YOLO_objects.append([2] + legs_bbox)
 
         case = {
             "caseID": case_id,
@@ -393,7 +400,7 @@ def generate_test_cases():
     return cases
 
 def save_cases_to_json(cases):
-    with open("YOLO/cases.json", "w") as f:
+    with open("YOLO_ball_box/cases.json", "w") as f:
         json.dump(cases, f, indent=2)
 
 # Generate and save test cases
