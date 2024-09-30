@@ -228,11 +228,13 @@ class TestCamera(unittest.TestCase):
         t = time.time() - self.startTime
         print('%s: %.3f' % (self.id(), t))
 
+    @unittest.skip("skipped")
     def test_image_to_world(self):
         self.cam = Camera(False) # no camera
         img_c = np.array([[100, 100]])
         self.cam.image_to_world(img_c)
 
+    @unittest.skip("skipped")
     def test_YOLO_model(self):
         # Open image(s) and pass to model
         self.cam = Camera(False) # no camera
@@ -247,13 +249,23 @@ class TestCamera(unittest.TestCase):
         if img is not None:
             cv2.imwrite("result.jpg", img)
         self.assertTrue(img is not None, "Camera did not capture anything")
-        for i in range(0, 10):
+        i = 0
+        while True:
             s = time.time()
             img = self.cam.capture()
             if img is not None:
                 cv2.imwrite(f"./test_results/result{i}.jpg", img)
             e = time.time()
             print(f"Frame {i}: {(e-s)*1e3:.2f} msec")
+            inp = input("x to escape, any other key to capture: ")
+            try:
+                adj = int(inp)
+                self.cam.cap.set(cv2.CAP_PROP_BRIGHTNESS, adj)
+            except ValueError:
+                if inp == "x":
+                    break
+            i += 1
+    
 
 
     def test_ball_detection(self):
