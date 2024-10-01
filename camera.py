@@ -16,7 +16,8 @@ class Camera:
     def __init__(self, open_cam=True):
         # Initialise USB Camera
         if open_cam:
-            self.cap = cv2.VideoCapture(-1, cv2.CAP_V4L)
+            self.cap = cv2.VideoCapture(-1, cv2.CAP_V4L) # for the pi
+            # self.cap = cv2.VideoCapture(0) # this may work if you are on a laptop
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             self.cap.set(cv2.CAP_PROP_FPS, 30)
@@ -33,8 +34,8 @@ class Camera:
 
         # Load ball detection model
         self.model = ncnn.Net()
-        self.model.load_param("./CV/YOLO_ball_detection_ncnn_model/model.ncnn.param")
-        self.model.load_model("./CV/YOLO_ball_detection_ncnn_model/model.ncnn.bin")
+        self.model.load_param("./CV/YOLO_ball_box_detection_ncnn_model/model.ncnn.param")
+        self.model.load_model("./CV/YOLO_ball_box_detection_ncnn_model/model.ncnn.bin")
 
         # Homography that transforms image coordinates to world coordinates
         self._H = np.array([
@@ -59,7 +60,7 @@ class Camera:
              print("Image not captured")
              return None
     
-    def apply_YOLO_model(self, image):
+    def apply_YOLO_model(self, image, visualise=False):
         """
         Apply YOLO model to get locations of balls
         """
@@ -96,44 +97,75 @@ class Camera:
         in0 = np.ascontiguousarray(im/255).astype(np.float32)  # contiguous
 
         # Prepare input
-        mat_in = ncnn.Mat(in0)
+        mat_in = ncnn.Mat(in0[0])
 
         # Run inference
         extractor = self.model.create_extractor()
         extractor.input("in0", mat_in)
         ret, mat_out = extractor.extract("out0")
         out = np.array(mat_out)
-        points = []
 
-        # Process results (find the max)
+        # Showing informations on the screen
+        class_ids = []
+        confidences = []
+        boxes = []
+
+        # plt.hist(out[6, :])
+        # plt.show()
+        max = np.argmax(out[6, :])
+        print(out[:, max])
+
         for i in range(mat_out.w):
             detection = out[:, i]
             scores = detection[4:]
             class_id = np.argmax(scores)
             confidence = scores[class_id]
-            
             if confidence > 0.6:
                 # Object detected
-                # TODO: Filter out invalid detections based on box size
-                xywh = detection[:4] / 640 # Centered coordinates
+                xywh = detection[:4] / 640
                 y = detection[1]
                 y = (y - top) / (640 - top - bottom)
                 
-                x = int(xywh[0] * width)
-                y = int(y * height + xywh[3] * width * 0.5)
-                
-                # Check if it already exists
-                duplicate = False
-                for p in points:
-                    if (p[0] - x) ** 2 + (p[1] - y)**2 < 5:
-                        duplicate = True
-                        break # don't add duplicate points
-                
-                if not duplicate:
-                    points.append([x, y])
+                center_x = int(xywh[0] * width)
+                center_y = int(y * height)
+                w = int(xywh[2] * width)
+                h = int(xywh[3] * width)
 
-        points = np.array(points)
-        return points.astype(int)
+                # Rectangle coordinates
+                x = int(center_x - w / 2)
+                y = int(center_y - h / 2)
+
+                boxes.append([x, y, w, h])
+                confidences.append(float(confidence))
+                class_ids.append(class_id)
+
+        indexes = cv2.dnn.NMSBoxes(boxes, confidences,score_threshold=0.5,nms_threshold=0.1,top_k=5)
+        classes = ['box', 'legs', 'tennis-ball']
+        font = cv2.FONT_HERSHEY_PLAIN
+        colors = np.random.uniform(0, 255, size=(len(classes), 3))
+        if visualise:
+            vis_image = image.copy()
+
+        ball_coords = []
+        for i in range(len(boxes)):
+            if i in indexes:
+                label = str(classes[class_ids[i]])
+                x, y, w, h = boxes[i]
+                color = colors[class_ids[i]]
+                
+                if label == 'tennis-ball':
+                    ball_coords.append([x + w/2, y + h])
+                
+                if visualise:
+                    cv2.rectangle(vis_image, (x, y), (x + w, y + h), color, 2)
+                    cv2.putText(vis_image, label, (x, y + 30), font, 2, color, 3)
+        
+        if visualise:
+            out_file = 'YOLO_result.jpg'
+            cv2.imwrite(out_file, vis_image)
+            print(f"Labelled image saved to {out_file}")
+        ball_coords = np.array(ball_coords)
+        return ball_coords.astype(int)
 
     def detectBalls(self, img=None):
         """
@@ -234,37 +266,22 @@ class TestCamera(unittest.TestCase):
         img_c = np.array([[100, 100]])
         self.cam.image_to_world(img_c)
 
-    @unittest.skip("skipped")
+    # @unittest.skip("skipped")
     def test_YOLO_model(self):
         # Open image(s) and pass to model
         self.cam = Camera(False) # no camera
         img = cv2.imread('CV/test_imgs/test_images/testing0001.jpg')
-        res = self.cam.apply_YOLO_model(img)
-        print(res)
+        res = self.cam.apply_YOLO_model(img, True)
+        print("Ball detected at:", res)
 
     def test_capture(self):
         self.cam = Camera(True)
         self.startTime = time.time()
         img = self.cam.capture()
         if img is not None:
-            cv2.imwrite("result.jpg", img)
+            cv2.imwrite("test_results/capture_result.jpg", img)
         self.assertTrue(img is not None, "Camera did not capture anything")
-        i = 0
-        while True:
-            s = time.time()
-            img = self.cam.capture()
-            if img is not None:
-                cv2.imwrite(f"./test_results/result{i}.jpg", img)
-            e = time.time()
-            print(f"Frame {i}: {(e-s)*1e3:.2f} msec")
-            inp = input("x to escape, any other key to capture: ")
-            try:
-                adj = int(inp)
-                self.cam.cap.set(cv2.CAP_PROP_BRIGHTNESS, adj)
-            except ValueError:
-                if inp == "x":
-                    break
-            i += 1
+        
     
 
 
@@ -279,6 +296,26 @@ class TestCamera(unittest.TestCase):
     def test_box_detection(self):
         # Open images and pass to function
         ...
+
+def _capture_loop():
+    cam = Camera(True)
+    i = 0
+    
+    while True:
+        s = time.time()
+        img = cam.capture()
+        if img is not None:
+            cv2.imwrite(f"./test_results/result{i}.jpg", img)
+        e = time.time()
+        print(f"Frame {i}: {(e-s)*1e3:.2f} msec")
+        inp = input("x to escape, any other key to capture: ")
+        try:
+            adj = int(inp)
+            cam.cap.set(cv2.CAP_PROP_BRIGHTNESS, adj)
+        except ValueError:
+            if inp == "x":
+                break
+        i += 1
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestCamera)

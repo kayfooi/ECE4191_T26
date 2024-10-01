@@ -154,5 +154,5 @@ def detect_tennis_court_lines(image_path, max_clusters=15):
 
 # Usage
 for n in range(0, 50, 10):
-    image_path = f'./ECE4191_T26/CV/test_imgs/test_images/testing{n:04g}.jpg'
+    image_path = f'./test_imgs/test_images/testing{n:04g}.jpg'
     detect_tennis_court_lines(image_path)

@@ -5,8 +5,6 @@ import time
 from camera import Camera
 import io
 
-
-
 try:
     import pigpio
     from WheelMotor import DiffDrive

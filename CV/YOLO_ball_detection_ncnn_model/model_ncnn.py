@@ -5,17 +5,14 @@ import torch
 def test_inference():
     torch.manual_seed(0)
     in0 = torch.rand(1, 3, 640, 640, dtype=torch.float)
-    
     out = []
 
     with ncnn.Net() as net:
-        net.load_param("model.ncnn.param")
-        net.load_model("model.ncnn.bin")
+        net.load_param("YOLO_ball_detection_ncnn_model/model.ncnn.param")
+        net.load_model("YOLO_ball_detection_ncnn_model/model.ncnn.bin")
 
         with net.create_extractor() as ex:
-            inp0 = in0.squeeze(0).numpy()
-            inp = ncnn.Mat(inp0).clone()
-            ex.input("in0", inp)
+            ex.input("in0", ncnn.Mat(in0.squeeze(0).numpy()).clone())
 
             _, out0 = ex.extract("out0")
             out.append(torch.from_numpy(np.array(out0)).unsqueeze(0))

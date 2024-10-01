@@ -1,299 +1,378 @@
-import ncnn
+
+import time
+
+s = time.time()
 import numpy as np
 import cv2
-import time
-from matplotlib import pyplot as plt
 from scipy.signal import find_peaks
+# from sklearn.linear_model import RANSACRegressor
+import matplotlib.pyplot as plt
+e = time.time()
 
-model = ncnn.Net() #type:ignore
-model.load_param("./YOLO_ball_detection_ncnn_model/model.ncnn.param")
-model.load_model("./YOLO_ball_detection_ncnn_model/model.ncnn.bin")
+print(f"import taken {(e-s)*1e3} msec")
 
-import numpy as np
+def speedy_ransac(points, num_iterations=50, threshold=10.0, min_inliers=3):
+    """
+    Implement a speedy RANSAC algorithm to find the line of best fit.
+    
+    Args:
+    points (np.array): Nx2 array of (x, y) coordinates
+    num_iterations (int): Number of iterations for RANSAC
+    threshold (float): Maximum distance for a point to be considered an inlier
+    min_inliers (int): Minimum number of inliers required for a good fit
+    
+    Returns:
+    tuple: (slope, intercept) of the best fit line, or None if no good fit found
+    """
+    best_inliers = []
+    best_slope = best_intercept = None
+    
+    for _ in range(num_iterations):
+        # Randomly select two points
+        sample = points[np.random.choice(points.shape[0], 2, replace=False)]
+        
+        # Calculate slope and intercept
+        x1, y1 = sample[0]
+        x2, y2 = sample[1]
+        
+        if x1 == x2:
+            continue  # Skip vertical lines
+        
+        slope = (y2 - y1) / (x2 - x1)
+        intercept = y1 - slope * x1
+        
+        # Calculate distances of all points to the line
+        distances = np.abs(points[:, 1] - (slope * points[:, 0] + intercept))
+        
+        # Find inliers
+        inliers = np.where(distances < threshold)[0]
+        
+        if len(inliers) > len(best_inliers):
+            best_inliers = inliers
+            best_slope = slope
+            best_intercept = intercept
+        
+        if len(best_inliers) > min_inliers:
+            break
+    
+    if len(best_inliers) > min_inliers:
+        # Refine the fit using all inliers
+        x = points[best_inliers, 0]
+        y = points[best_inliers, 1]
+        A = np.vstack([x, np.ones(len(x))]).T
+        best_slope, best_intercept = np.linalg.lstsq(A, y, rcond=None)[0]
+        
+        return best_slope, best_intercept
+    else:
+        return (None, None)
 
-def calculate_adaptive_threshold(image):
-    height, _, _ = image.shape
-    avg_color = np.mean(image, axis=(0, 1))
-    avg_gray = np.mean(avg_color)
-    threshold = min(int(avg_gray) + 70, 253)
-    return threshold
 
-def isolate_white_pixels(image, threshold):
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    _, white_mask = cv2.threshold(gray, threshold, 255, cv2.THRESH_BINARY)
-    result = cv2.bitwise_and(image, image, mask=white_mask)
-    return result
+def detect_white_line(image, target_point, num_paths=10):
+    height, width = image.shape[:2]
+    mid_bottom = (width // 2, height - 1)
+    
+    def extract_path(start, end, offset):
+        x1, y1 = start
+        x2, y2 = end
+        path_length = int(np.sqrt((x2 - x1)**2 + (y2 - y1)**2))
+        x = np.linspace(x1, x2, path_length).astype(int)
+        y = np.linspace(y1, y2, path_length).astype(int)
+        
+        # Apply horizontal offset
+        x = np.clip(x + offset, 0, width - 1)
+        
+        return image[y, x], np.array(list(zip(x, y)))
+    
+    def process_path(path):
+        # Apply Sobel Y filter
+        sobel_y = cv2.Sobel(path, cv2.CV_64F, 0, 1, ksize=3)
+        
+        def detect_peaks(channel, take_max = 5):
+            positive_peaks, _ = find_peaks(channel, distance=10)
+            negative_peaks, _ = find_peaks(-channel, distance=10)
+            
+            # return top results
+            return (
+                positive_peaks[np.argsort(channel[positive_peaks])[- 1 : -1 - take_max: -1]], 
+                negative_peaks[np.argsort(-channel[negative_peaks])[- 1 : -1 - take_max : -1]]
+            )
+        
+        # Find peaks for R and G channels
+        r_pos_peaks, r_neg_peaks = detect_peaks(sobel_y[:, 0])
+        g_pos_peaks, g_neg_peaks = detect_peaks(sobel_y[:, 1])
 
-def plot_bgr_hsv_column(image, column):
-    # Ensure the image is a numpy array
-    if not isinstance(image, np.ndarray):
-        raise TypeError("Image must be a numpy array")
+        def blue_white_score(posp, negp):
+            # plot_blue_white_score(path, posp, negp)
+            # Compare line to before and after
+            sample_size = 10
+            padding = 5
+            pre_sample = path[max(0, posp-padding-sample_size):posp-padding]
+            line_sample = path[posp:negp]
+            post_sample = path[negp+padding:min(negp+padding+sample_size, len(path)-5)]
+            
+            def get_blue_score(s):
+                mean_rg = np.mean(s[:, [1,2]])
+                mean_b = np.mean(s[:, 0])
+                return ((mean_b / mean_rg) - 1) * 300, mean_rg
+
+            pre_blue, pre_rg = get_blue_score(pre_sample)
+            post_blue, post_rg = get_blue_score(post_sample)
+
+            # Get white score
+            # rgb values should be similar
+            consistency = 1/(0.5+np.mean(np.var(line_sample, axis=1))) * 200
+
+            white_rg = np.mean(line_sample[:, [1,2]])
+
+            # both should be positive
+            pre_change = white_rg - pre_rg
+            post_change = white_rg - post_rg
+
+            total_score = pre_blue + post_blue + consistency + pre_change + post_change
+            # print(f"Total Blue-White Score: {total_score:.2f}")
+            return total_score
+
+
+        # Calculate confidence scores
+        def calculate_best(pos_peaks, neg_peaks, channel):
+            best_score = 0
+            best_pair = None
+            SPACE_BETWEEN_POS_NEG = 40 # roughly max line width
+            DIFF_POS_NEG = 0 # pos_peaks[0] * 0.05 # allows slight differents between positive and negative
+
+            for posp in pos_peaks:
+                CLOSE_TO_CAM = 10 + posp # favour points closer to camera
+                prominence = channel[posp]
+                for negp in neg_peaks:
+                    # positive edge is always leading
+                    if negp > posp:
+                        width = negp-posp
+                        if width < SPACE_BETWEEN_POS_NEG * 1.1:
+                            conf = prominence**2 / (CLOSE_TO_CAM + DIFF_POS_NEG + (width/SPACE_BETWEEN_POS_NEG) ** 8 + abs(prominence + channel[negp]))
+                            conf += blue_white_score(posp, negp)
+                            if conf > best_score:
+                                best_pair = [posp, negp]
+                                best_score = conf
+            
+            return np.array(best_pair), best_score
+        
+        r_pair, r_confidence = calculate_best(r_pos_peaks, r_neg_peaks, sobel_y[:, 0])
+        g_pair, g_confidence = calculate_best(g_pos_peaks, g_neg_peaks, sobel_y[:, 1])
+        
+        # Combine r and g
+        conf = 0
+        pair = np.array([0, 0])
+        if r_confidence != 0 and g_confidence != 0:
+            distance = np.linalg.norm(r_pair - g_pair)
+            if distance < 10:
+                pair = (r_pair + g_pair) / 2 # average coordinates
+                conf = (1 - distance/50) * (r_confidence + g_confidence)
+            else:
+                pair = r_pair
+                conf = r_confidence
+        elif r_confidence != 0:
+            pair = r_pair
+            conf = r_confidence
+        elif g_confidence != 0:
+            pair = g_pair
+            conf = g_confidence
+
+        return conf, sobel_y, (r_pos_peaks, r_neg_peaks, g_pos_peaks, g_neg_peaks), pair.astype(int)
+
+    # Extract and process multiple paths
+    offsets = np.linspace(-width // 10, width // 10, num_paths)
+    confidences = []
+    all_path_points = []
+    all_sobel_data = []
+    all_peaks = []
+    leading_points = []
+    trailing_points = []
+    chosen_peaks = []
+    for offset in offsets:
+        path, path_points = extract_path(mid_bottom, target_point, int(offset))
+        confidence, sobel_data, peaks, pair = process_path(path)
+
+        leading_points.append(path_points[pair[0]])
+        trailing_points.append(path_points[pair[1]])
+
+        confidences.append(confidence)
+        all_path_points.append(path_points)
+        all_sobel_data.append(sobel_data)
+        all_peaks.append(peaks)
+        chosen_peaks.append(pair)
     
-    # Check if the column is within the image bounds
-    if column < 0 or column >= image.shape[1]:
-        raise ValueError("Column index out of bounds")
+    # Find slope and intercept of leading and trailing edges
+    lead_slope, lead_int = speedy_ransac(np.array(leading_points))
+    trail_slope, trail_int = speedy_ransac(np.array(trailing_points))
     
-    # Extract the specified column
-    bgr_column = image[:, column, :]
+    lines = [
+        [lead_slope, lead_int],
+        [trail_slope, trail_int]
+    ]
+
+    if lead_slope is not None and trail_slope is not None:
+        # Check the two edges make a sensible line
+        grad_diff = abs(lead_slope - trail_slope)
+        int_diff = lead_int - trail_int
+        if not (grad_diff < 0.012 and 0 < int_diff < 55):
+            lines = None # invalid detection
+    else:
+        # No lines found
+        lines = None
     
-    # Convert BGR to HSV
-    hsv_column = cv2.cvtColor(bgr_column.reshape(1, -1, 3), cv2.COLOR_BGR2HSV).reshape(-1, 3)
+    return leading_points, trailing_points, np.mean(confidences), all_path_points, all_sobel_data, all_peaks, chosen_peaks, lines
+
+
+def plot_peaks(sobel_data, peaks, path_index, chosen_peaks):
+    r_pos_peaks, r_neg_peaks, g_pos_peaks, g_neg_peaks = peaks
     
-    # Create x-axis values (pixel indices)
-    pixel_indices = np.arange(bgr_column.shape[0])
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
     
-    # Create the plot with two subplots
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
-    
-    # Plot BGR values
-    ax1.plot(pixel_indices, bgr_column[:, 0], 'b-', label='Blue')
-    ax1.plot(pixel_indices, bgr_column[:, 1], 'g-', label='Green')
-    ax1.plot(pixel_indices, bgr_column[:, 2], 'r-', label='Red')
-    
-    ax1.set_title(f'BGR Values for Column {column}')
-    ax1.set_xlabel('Pixel Index')
-    ax1.set_ylabel('Color Intensity')
+    # Plot R channel
+    ax1.plot(sobel_data[:, 0], label='R channel')
+    ax1.plot(r_pos_peaks, sobel_data[r_pos_peaks, 0], "ro", label='Positive peaks')
+    ax1.plot(r_neg_peaks, sobel_data[r_neg_peaks, 0], "go", label='Negative peaks')
+    ax1.plot(chosen_peaks, sobel_data[chosen_peaks, 0], "kx", label='Chosen Peaks')
+    ax1.set_title(f'R Channel - Path {path_index}')
     ax1.legend()
     ax1.grid(True)
     
-    # Plot HSV values
-    ax2.plot(pixel_indices, hsv_column[:, 0], 'm-', label='Hue')
-    ax2.plot(pixel_indices, hsv_column[:, 1], 'c-', label='Saturation')
-    ax2.plot(pixel_indices, hsv_column[:, 2], 'y-', label='Value')
-    
-    ax2.set_title(f'HSV Values for Column {column}')
-    ax2.set_xlabel('Pixel Index')
-    ax2.set_ylabel('HSV Values')
+    # Plot G channel
+    ax2.plot(sobel_data[:, 1], label='G channel')
+    ax2.plot(g_pos_peaks, sobel_data[g_pos_peaks, 1], "ro", label='Positive peaks')
+    ax2.plot(g_neg_peaks, sobel_data[g_neg_peaks, 1], "go", label='Negative peaks')
+    ax2.set_title(f'G Channel - Path {path_index}')
     ax2.legend()
     ax2.grid(True)
     
     plt.tight_layout()
     plt.show()
 
-# Example usage:
-# image = cv2.imread('your_image.jpg')
-# plot_bgr_hsv_column(image, 100)  # Plot BGR and HSV values for column 100
+# The visualize_results function and example usage remain the same as in the previous version
 
-def apply_YOLO_model(image):
-    """
-    Apply YOLO model to get locations of balls
-    """
-    # Preprocessing
-    height, width, _ = image.shape
-    img_proc = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-    img = image.copy()
-    shape = img.shape[:2]  # current shape [height, width]
-    size = 640
-    new_shape = (size, size)
-
-    # Scale ratio (new / old)
-    r = min(new_shape[0] / shape[0], new_shape[1] / shape[1])
-
-    # Compute padding
-    stride = 32
-    ratio = r, r  # width, height ratios
-    new_unpad = int(round(shape[1] * r)), int(round(shape[0] * r))
-    dw, dh = new_shape[1] - new_unpad[0], new_shape[0] - new_unpad[1]  # wh padding
-
-    dw /= 2  # divide padding into 2 sides
-    dh /= 2
-
-    if shape[::-1] != new_unpad:  # resize
-        img = cv2.resize(img, new_unpad, interpolation=cv2.INTER_LINEAR)
-    top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
-    left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
-    img = cv2.copyMakeBorder(
-        img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114)
-    )  # add border
-
-    im = np.stack([img])
-    im = im[..., ::-1].transpose((0, 3, 1, 2))  # BGR to RGB, BHWC to BCHW, (n, 3, h, w)
-    in0 = np.ascontiguousarray(im/255).astype(np.float32)  # contiguous
-
-    # Prepare input
-    mat_in = ncnn.Mat(in0) #type:ignore
-
-    # Run inference
-    extractor = model.create_extractor()
-    extractor.input("in0", mat_in)
-    ret, mat_out = extractor.extract("out0")
-    out = np.array(mat_out)
-    points = []
-
-    # Process results (find the max)
-    for i in range(mat_out.w):
-        detection = out[:, i]
-        scores = detection[4:]
-        class_id = np.argmax(scores)
-        confidence = scores[class_id]
-        
-        if confidence > 0.6:
-            # Object detected
-            # TODO: Filter out invalid detections based on box size
-            xywh = detection[:4] / size # Centered coordinates
-            y = detection[1]
-            y = (y - top) / (size - top - bottom)
-            
-            x = int(xywh[0] * width)
-            y = int(y * height + xywh[3] * width * 0.5)
-            
-            # Check if it already exists
-            duplicate = False
-            for p in points:
-                if (p[0] - x) ** 2 + (p[1] - y)**2 < 5:
-                    duplicate = True
-                    break # don't add duplicate points
-            
-            if not duplicate:
-                points.append([x, y])
-
-    points = np.array(points)
-    return points.astype(int)
-
-def plot_rgb(signal):
-    # plt.plot(signal[:, 0], 'b')
-    plt.plot(signal[:, 0], 'g')
-    plt.plot(signal[:, 1], 'r')
-
-def is_line_before_ball(img, target):
-    """
-    Check if there's a line before the ball in the image.
+def visualize_results(image, target_point, leading_edge, trailing_edge, confidence, all_path_points, lines):
+    height, width = image.shape[:2]
+    mid_bottom = (width // 2, height - 1)
     
-    Args:
-    img (numpy.ndarray): The input image.
-    target (list): The [x, y] coordinates of the detected ball.
+    # Create a copy of the image for visualization
+    vis_image = image.copy()
     
-    Returns:
-    bool: True if the ball is not centered (implying a line might be before it), False otherwise.
-    """
-    h, w, c = img.shape
-    # Reduce image size to speed up processing
-    scale_down_factor = 1
-    h, w = h//scale_down_factor, w//scale_down_factor
-    target = np.array(target).astype(int) // scale_down_factor
-    img = cv2.resize(img, (w, h))
-    xmid = w//2
+    # Draw paths
+    for path_points in all_path_points:
+        for x, y in path_points:
+            cv2.circle(vis_image, (x, y), 1, (0, 255, 255), -1)
     
-    # Define the width of the path to analyze
-    path_width = 50
-    os = path_width // 2  # offset from path center
-    path_height = h - target[1]
-
-    # Create an array to store the pixels along the path to the ball
-    path_to_ball = np.zeros((path_height + 1, path_width, c)).astype(np.uint8)
+    # Draw target point
+    cv2.circle(vis_image, target_point, 5, (0, 0, 255), -1)
     
-    # Calculate the gradient of the path
-    gradient = (xmid - target[0]) / path_height
+    # Draw mid-bottom point
+    cv2.circle(vis_image, mid_bottom, 5, (255, 0, 0), -1)
+    
+    # Draw leading and trailing edges
+    for p in leading_edge:
+        cv2.drawMarker(vis_image, 
+                tuple(p), 
+                (0, 255, 0), cv2.MARKER_CROSS, 5)
+    for p in trailing_edge:
+        cv2.drawMarker(vis_image, 
+                tuple(p), 
+                (0, 0, 255), cv2.MARKER_CROSS, 5)
+    
+    if lines is not None:
+        for l in lines:
+            x1, x2 = 0, width
+            y1, y2 = int(l[1]), int(l[0] * width + l[1])
+            cv2.line(vis_image, (x1, y1), (x2, y2), (0, 0, 255), 2)
+    
+    # Add text with results
+    # cv2.putText(vis_image, f"Leading edge: {leading_edge:.2f}", (10, 30), 
+    #             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    # cv2.putText(vis_image, f"Trailing edge: {trailing_edge:.2f}", (10, 60), 
+    #             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    cv2.putText(vis_image, f"Confidence: {confidence:.2f}", (10, 90), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    
+    return vis_image
 
-    # Extract the pixels along the path
-    for y in range(path_height):
-        x = int(target[0] + y * gradient)
-        if x-os > 0 and x + os < w:
-            path_to_ball[y] = img[y + target[1], x-os:x+os, :]
-        else:
-            return True  # Ball is not centered in the image
 
-    # Apply Sobel edge detection to the path
-    ksize = 5
-    edges = cv2.Sobel(path_to_ball, cv2.CV_16S, 0, 1, ksize=ksize, scale=10)
+def plot_blue_white_score(path, posp, negp):
+    sample_size = 10
+    padding = 5
+    pre_sample = path[max(0, posp-padding-sample_size):posp-padding]
+    line_sample = path[posp:negp]
+    post_sample = path[negp+padding:min(negp+padding+sample_size, len(path))]
+    
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 15))
+    
+    # Plot 1: Full path with samples highlighted
+    x = np.arange(len(path))
+    ax1.plot(x, path[:, 0], 'b-', label='Blue')
+    ax1.plot(x, path[:, 1], 'g-', label='Green')
+    ax1.plot(x, path[:, 2], 'r-', label='Red')
+    ax1.axvspan(posp-padding-sample_size, posp-padding, color='yellow', alpha=0.3, label='Pre-sample')
+    ax1.axvspan(posp, negp, color='gray', alpha=0.3, label='Line sample')
+    ax1.axvspan(negp+padding, negp+padding+sample_size, color='orange', alpha=0.3, label='Post-sample')
+    ax1.set_title('Full Path with Samples')
+    ax1.legend()
+    ax1.set_ylabel('Pixel Value')
+    
+    # Plot 2: Blue scores
+    def plot_blue_score(ax, sample, label):
+        mean_rg = np.mean(sample[:, [1,2]])
+        mean_b = np.mean(sample[:, 0])
+        blue_score = ((mean_b / mean_rg) - 1) * 100
+        ax.bar(label, blue_score)
+        ax.text(label, blue_score, f'{blue_score:.2f}', ha='center', va='bottom')
+    
+    plot_blue_score(ax2, pre_sample, 'Pre-sample')
+    plot_blue_score(ax2, post_sample, 'Post-sample')
+    ax2.set_title('Blue Scores')
+    ax2.set_ylabel('Blue Score')
+    
+    # Plot 3: Consistency and RG changes
+    consistency = 1/(1+np.var(line_sample, axis=1)) * 100
+    white_rg = np.mean(line_sample[:, [1,2]])
+    pre_rg = np.mean(pre_sample[:, [1,2]])
+    post_rg = np.mean(post_sample[:, [1,2]])
+    pre_change = white_rg - pre_rg
+    post_change = white_rg - post_rg
+    
+    ax3.bar('Consistency', np.mean(consistency))
+    ax3.bar('Pre RG Change', pre_change)
+    ax3.bar('Post RG Change', post_change)
+    ax3.set_title('Consistency and RG Changes')
+    ax3.set_ylabel('Value')
+    
+    for i, v in enumerate([np.mean(consistency), pre_change, post_change]):
+        ax3.text(i, v, f'{v:.2f}', ha='center', va='bottom')
+    
+    plt.tight_layout()
+    plt.show()
 
-    # Analyze multiple columns along the path
-    xcoords = [os//2, os, os+os//2]
-    for xcoord in xcoords:
-        edge = edges[:, xcoord, :]
-
-        # Find peaks in the red channel (most prominent in blue -> white edge)
-        rpeaks, rprops = find_peaks(edge[:, 2], prominence=20000, width=3, wlen=20, distance=10)
-        
-        for i, peak in enumerate(rpeaks):
-            # Ignore peaks at the very start or end of the path
-            if peak < 5 or peak > path_height - 6:
-                continue
-
-            # Extract properties of the peak
-            width = rprops["widths"][i]
-            rb = rprops["right_bases"][i]
-            lb = rprops["left_bases"][i]
-            gwidth = rb - lb
-            offset = int(gwidth/2)
-            prominence = rprops["prominences"][i]
-
-            # Extract the window around the peak
-            peak_window = edge[lb:rb, 1:]
-            
-            # Search for a matching negative peak (white -> blue transition)
-            min_err = gwidth * prominence ** 2 / 4
-            og_min_err = min_err
-            neg_peak_window = None
-            min_dp = None
-            errs = []
-            minimising = False
-            no_min = 0
-
-            for dp in range(int(offset), min(30, path_height - rb)):
-                comp_peak_window = edge[lb + dp:rb + dp, 1:]
-                combined = (peak_window + comp_peak_window).astype(np.int64)
-                
-                # Calculate error between the two peaks
-                err = np.sum(combined**2)
-                errs.append(err)
-
-                # Update if this is the best match so far
-                if err < min_err:
-                    neg_peak_window = comp_peak_window
-                    min_err = err
-                    min_dp = dp
-                    minimising = True
-                    no_min = 0
-                else:
-                    if minimising:
-                        no_min += 1
-                    if no_min > 10:
-                        break
-
-            # If a matching negative peak is found, mark it on the image
-            if neg_peak_window is not None:
-                # Mark the positive peak
-                cv2.drawMarker(path_to_ball, (xcoord, peak), (0, 0, 255), cv2.MARKER_CROSS, 10, 2)
-                orig_y = peak + target[1]
-                orig_x = target[0] - os + xcoord + int(peak * gradient)
-                cv2.drawMarker(img, (orig_x, orig_y), (0, 0, 255), cv2.MARKER_CROSS, 10, 2)
-                
-                # Mark the corresponding negative peak
-                cv2.drawMarker(path_to_ball, (xcoord, peak+min_dp), (0, 0, 255), cv2.MARKER_CROSS, 10, 2)
-                orig_y = peak + min_dp + target[1]
-                orig_x = target[0] - os + xcoord + int((peak + min_dp) * gradient)
-                cv2.drawMarker(img, (orig_x, orig_y), (0, 0, 255), cv2.MARKER_CROSS, 10, 2)
-
-    # Display the processed image
-    cv2.imshow('img', img)
-    cv2.waitKey()
-      
-
-for n in range(1, 100, 10):
-    # n = 27
+# Example usage
+for n in range(1): # 0, 190, 10):
+    n = 17
     image_path = f'./test_imgs/test_images/testing{n:04g}.jpg'
-    # image_path = f'./test_line_{n}.jpg'
-    print(n)
-    img = cv2.imread(image_path)
-    
+    image = cv2.imread(image_path)
+    target_point = (640, 150)  # Example target point
+
     s = time.time()
-    points = apply_YOLO_model(img)
+    leading_edge, trailing_edge, confidence, all_path_points, all_sobel_data, all_peaks, chosen_peaks, lines = detect_white_line(image, target_point, 8)
     e = time.time()
-    print(f'Model took: {(e-s) * 1e3 : .2f} ms')
 
-    # is_line_before_ball(img, points[1])
-    for p in points:
-        is_line_before_ball(img, p)
+    print(f"taken {(e-s)*1e3} msec")
+    # Visualize results (previous visualization code here)
+    # Plot peaks for each path
+    # for i, (sobel_data, peaks, chosen) in enumerate(zip(all_sobel_data, all_peaks, chosen_peaks)):
+    #    plot_peaks(sobel_data, peaks, i, chosen)
 
-    for (i, p) in enumerate(points):
-        cv2.putText(img, f'tennis-ball-{i}', (p[0]-50, p[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 0, 255))
-        cv2.drawMarker(img, tuple(p), (0, 0, 255), cv2.MARKER_CROSS, 20, 3, 0)
-    
-    # cv2.imshow('image', img)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
-    print(points)
+    # Visualize results
+    result_image = visualize_results(image, target_point, leading_edge, trailing_edge, confidence, all_path_points, lines)
 
-cv2.destroyAllWindows()
+    # Display the result
+    cv2.imshow('White Line Detection', result_image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+    # Optionally, save the result
+    cv2.imwrite('white_line_detection_result.jpg', result_image)
