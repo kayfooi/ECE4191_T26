@@ -22,8 +22,8 @@ else:
     tof = None
 
 # GPIO Numbers
-TIPPING_SERVO_GPIO = 7
-PADDLE_SERVO_GPIO = 13 # placeholder
+TIPPING_SERVO_GPIO = 18
+PADDLE_SERVO_GPIO = 7
 # Other GPIO is stored in WheelMotor.py
 
 class Robot:
@@ -58,7 +58,7 @@ class Robot:
         """
         # Send rotation instruction
         if on_pi:
-            rotation_left, rotation_right = self.dd.rotate(angle, speed)
+            rotation_left, rotation_right, stop_code = self.dd.rotate(angle, speed)
             self.th += (rotation_left + rotation_right) / 2
         else:
             noise = 2 # magnitude of randomness (simulation)
@@ -77,7 +77,7 @@ class Robot:
         """
         # Send translation instruction
         if on_pi:
-            disp_left, disp_right = self.dd.translate(displacement, speed)
+            disp_left, disp_right, stop_code = self.dd.translate(displacement, speed)
             avg_disp = (disp_left + disp_right )/ 2
             
             # Big Error
@@ -146,7 +146,7 @@ class Robot:
         dump_angle = 90 # TODO: check this before mounting
         dump_speed = 10 # degrees per second
 
-        self.tip_servo.set_angle(dump_angle)
+        self.tip_servo.set_angle(dump_angle, dump_speed)
         time.sleep(5) # allow balls to exit
         # TODO: may have to add shaking mechanism if balls don't exit reliably
 
@@ -154,8 +154,8 @@ class Robot:
         rest_angle = 0 # TODO: check this before mounting
         return_speed = 20
 
-        self.tip_servo.set_angle(rest_angle, )
-        self.sleep(0.5)
+        self.tip_servo.set_angle(rest_angle)
+        time.sleep(0.5)
         self.tip_servo.stop()
     
     # -------- HELPER FUNCTIONS -----------
@@ -290,7 +290,7 @@ class TestBot(unittest.TestCase):
         # Open image(s) and pass to function
         img = cv2.imread('CV/test_imgs/test_images/testing0001.jpg')
         res = self.bot.detectBalls(img)
-
+        print(res)
         # np.testing.assert_allclose(res, np.array([
         #     [0.071, 0.91]
         # ]), atol=0.005)
@@ -298,10 +298,12 @@ class TestBot(unittest.TestCase):
     
     @unittest.skipIf(not on_pi, "Pi not connected")
     def test_dump_balls(self):
+        print("Dumping balls...")
         self.bot.dump_balls()
     
-    @unittest.skipIf(not on_pi, "Pi not connected")
+    @unittest.skipIf(True, "not connected")
     def test_collect_ball(self):
+        print("Collecting ball...")
         self.bot.collect_ball()
 
 if __name__ == '__main__':

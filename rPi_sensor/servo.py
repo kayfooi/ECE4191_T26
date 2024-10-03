@@ -9,7 +9,7 @@ class Servo:
     def __init__(self, pi, pin):
         self.pi = pi
         self.pin = pin
-        pi.set_mode(pin, pigpio.OUTPUT)
+        self.pi.set_mode(pin, pigpio.OUTPUT)
         
 
     def set_angle(self, angle, speed=-1):
@@ -30,31 +30,31 @@ class Servo:
 
         # Go straight to the angle
         if speed == -1:
-            pi.set_servo_pulsewidth(self.pin, target_pulse_width)
+            self.pi.set_servo_pulsewidth(self.pin, target_pulse_width)
             return
         
         # Increment servo at a set speed
         pulse_speed = get_pw(speed) - self.MIN_PULSE
         update_delay = 1/50 # sec (Update the servo pulsewidth every update_delay seconds)
         increment = pulse_speed * update_delay # Increment pulse width by this much every step
-        current_pw = pi.get_servo_pulsewidth(self.pin)
+        current_pw = self.pi.get_servo_pulsewidth(self.pin)
         direction = 1 if target_pulse_width > current_pw else -1
-        print(current_pw, increment, target_pulse_width, pulse_speed, increment)
+        # print(current_pw, increment, target_pulse_width, pulse_speed, increment)
         count = 0
         while (current_pw + direction * increment - target_pulse_width) * direction <= 0:
-            print(current_pw)
+            # print(current_pw)
             current_pw += direction * increment
             assert(600 <= current_pw <= 2400), "Pulse Width must be between 600 and 2400"
-            pi.set_servo_pulsewidth(self.pin, current_pw)
+            self.pi.set_servo_pulsewidth(self.pin, current_pw)
             sleep(update_delay)
             count += 1
-        print(count)
+        # print(count)
 
         # Complete the rotation
-        pi.set_servo_pulsewidth(self.pin, target_pulse_width)
+        self.pi.set_servo_pulsewidth(self.pin, target_pulse_width)
 
     def get_angle(self):
-        return 180 * (self.pi.get_servo_pulsewidth(self.pin) - self.MIN_PULSE) / (self.MAX_PULSE - self.MIN_PULSE)
+        return 180 * (self.self.pi.get_servo_pulsewidth(self.pin) - self.MIN_PULSE) / (self.MAX_PULSE - self.MIN_PULSE)
     
     def stop(self):
         """
@@ -63,7 +63,7 @@ class Servo:
         self.pi.set_servo_pulsewidth(self.pin, 0)
 
 class TestServo(unittest.TestCase):
-    def setuUp(self):
+    def setUp(self):
         SERVO_GPIO = 7
         pi = pigpio.pi()
         self.servo = Servo(pi, SERVO_GPIO)
@@ -121,5 +121,4 @@ class TestServo(unittest.TestCase):
         self.assertEqual(self.servo.get_angle(), 90)
 
 if __name__ == "__main__":
-    pi = pigpio.pi()
     unittest.main()
