@@ -24,6 +24,7 @@ from robot import Robot
 from matplotlib import pyplot as plt
 import sys
 import cv2
+from datetime import datetime
 
 et = time.time()
 print(f"Modules loaded in {(et-st) : .3f} sec")
@@ -61,11 +62,11 @@ def plot_state(msg=""):
     plt.xlabel(f'Bot @ ({R.pos[0]:.2f}, {R.pos[1]:.2f}) facing {R.th:.2f}°')
     plt.legend(loc='upper left')
     plt.axis('equal')
-    plt.savefig(f'./main_out/{frame_count:03d}.jpg')
+    plt.savefig(f'./main_out/{datetime.now().strftime("%H%M%S")}_{frame_count:04d}.jpg')
     
     frame_count += 1
 
-sim_frame = None if R.is_on_pi() else cv2.imread('CV/test_imgs/test_images/testing0042.jpg')
+sim_frame = None if R.is_on_pi() else cv2.imread('CV/test_imgs/test_images/testing0000.jpg')
 
 # Exploration parameters
 consecutive_rotations = 0
@@ -84,15 +85,12 @@ while W.getElapsedTime() < COMPETITION_DURATION:
         for b in balls:
             W.addBall(b, R.pos)
     
-    
-    
     # 2. Navigate to ball (bug algorithm) or loop through vantage points if no ball found
     target, target_idx = W.getClosestBall(R.pos)
     W.target_ball_idx = target_idx
 
     plot_state("First detection")
     
-
     if target is not None:
         # Face ball
         R.rotate(R.calculateRotationDelta(target))

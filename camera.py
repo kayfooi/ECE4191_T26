@@ -112,8 +112,8 @@ class Camera:
 
         # plt.hist(out[6, :])
         # plt.show()
-        max = np.argmax(out[6, :])
-        print(out[:, max])
+        # max = np.argmax(out[6, :])
+        # print(out[:, max])
 
         for i in range(mat_out.w):
             detection = out[:, i]

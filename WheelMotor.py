@@ -117,7 +117,7 @@ class DiffDrive:
         self.motor_left = DCMotor(pi, LEFT_ENC_A, LEFT_EN, LEFT_IN1, LEFT_IN2, [0, 1])
         self.motor_right = DCMotor(pi, RIGHT_ENC_A, RIGHT_EN, RIGHT_IN1, RIGHT_IN2, [1, 0])
 
-    def PID_speed_control(self, enc_l_delta, enc_r_delta, speed = 300, stop_for_ball = False, kp = 0.0003, kd = 0.000005, ki = 0.000001):
+    def PID_speed_control(self, enc_l_delta, enc_r_delta, speed = 300, kp = 0.0003, kd = 0.000005, ki = 0.000001):
         """
         Control motors with simple PID contols for velocity
         
@@ -129,7 +129,7 @@ class DiffDrive:
             Achieve this change in encoder count on the right motor (can be negative)
         speed : int
             Desired speed in encoder counts per second
-        kp, kd, ki : float
+        kp, kd, ki : float (optional)
             PID parameters
         
         Returns
@@ -138,6 +138,12 @@ class DiffDrive:
             Resulting left encoder delta
         r_delta : int
             Resulting right encoder delta
+        stop_code : int
+            Mechanism that stopped the robot
+            0: standard completion
+            1: object detected
+            2: timeout
+            3: encoder error
         """
 
         if enc_l_delta == 0 and enc_r_delta == 0:
@@ -171,12 +177,15 @@ class DiffDrive:
 
         sgn = self.motor_left.odo > enc_l_final
         zero_flag = 0
+        stop_code = 0 # Standard stop
 
         # Wait for left encoder count to reach desired value or timeout
         while sgn == (self.motor_left.odo > enc_l_final):
             
-            if stop_for_ball and self.pi.read(IR__BALLDETECT_IN) == 0:
-                print("Ball Detected! Stopping")
+            # May need to double check to avoid this triggering randomly
+            if self.pi.read(IR__BALLDETECT_IN) == 0:
+                print("IR Triggered. Stopping!")
+                stop_code = 1
                 break
 
             start_sample_l = self.motor_left.odo
@@ -216,9 +225,11 @@ class DiffDrive:
             sample_count += 1
             if sample_count == max_count:
                 print("Timeout reached. Terminating drive")
+                stop_code = 2
                 break
             if zero_flag > 50:
                 print("Encoders not counting. Terminating drive")
+                stop_code = 3
                 break
 
             # Debugging statements
@@ -261,10 +272,11 @@ class DiffDrive:
 
         return (
             self.motor_left.odo - enc_l_init, # resulting left encoder delta
-            self.motor_right.odo - enc_r_init # resulting right encoder delta
-            )
+            self.motor_right.odo - enc_r_init, # resulting right encoder delta
+            stop_code
+        )
 
-    def translate(self, disp, speed, stop_for_ball=False):
+    def translate(self, disp, speed):
         """
         Move the robot in a straight line.
         
@@ -295,9 +307,9 @@ class DiffDrive:
         
         # print(enc_dist, enc_goal, offset)
 
-        ld, rd = self.PID_speed_control(enc_goal, enc_goal, speed * m_to_enc, stop_for_ball)
+        ld, rd, stop_code = self.PID_speed_control(enc_goal, enc_goal, speed * m_to_enc)
 
-        return (ld / m_to_enc, rd / m_to_enc)
+        return (ld / m_to_enc, rd / m_to_enc, stop_code)
     
     def rotate(self, angle, speed):
         """
@@ -324,9 +336,9 @@ class DiffDrive:
             ang_enc = angle * deg_to_enc - offset
         else:
             ang_enc = angle * deg_to_enc + offset
-        ld, rd =self.PID_speed_control(ang_enc, -ang_enc, speed * deg_to_enc)
+        ld, rd, stop_code =self.PID_speed_control(ang_enc, -ang_enc, speed * deg_to_enc)
         
-        return (ld / deg_to_enc, rd / deg_to_enc)
+        return (ld / deg_to_enc, rd / deg_to_enc, stop_code)
 
 
 class TestDiffDrive(unittest.TestCase):
@@ -389,11 +401,12 @@ class TestDiffDrive(unittest.TestCase):
         Make sure the motor stops for ball
         """
         print("Ball detection test: Trigger IR Sensor stop the bot!")
-        left, right = self.dd.translate(1.0, 0.08, True)
+        left, right, stop_code = self.dd.translate(1.0, 0.08, True)
 
         # Robot should have stopped before requested distance
         self.assertLess(left, 1.0, "Robot should have stopped before requested distance")
         self.assertLess(right, 1.0, "Robot should have stopped before requested distance")
+        self.assertEqual(stop_code, 1, "Robot did not detect ball.")
     
     @unittest.skipIf("rotation" not in ACTIVE_TESTS, "rotation test skipped")
     def test_rotation(self):
@@ -401,14 +414,14 @@ class TestDiffDrive(unittest.TestCase):
         SPEED = 30
 
         print(f"rotate {ANGLE}deg anticlockwise")
-        left1, right1 = self.dd.rotate(ANGLE, SPEED)
+        left1, right1, stop_code1 = self.dd.rotate(ANGLE, SPEED)
         print(f'Motor left drove: {left1:.2f} deg')
         print(f'Motor right drove: {right1:.2f} deg')
-
+        
         time.sleep(0.5)
 
         print(f"rotate {ANGLE}deg clockwise")
-        left2, right2 = self.dd.rotate(-ANGLE, SPEED)
+        left2, right2, stop_code2 = self.dd.rotate(-ANGLE, SPEED)
         print(f'Motor left drove: {left2:.2f} deg')
         print(f'Motor right drove: {right2:.2f} deg')
 
@@ -416,6 +429,8 @@ class TestDiffDrive(unittest.TestCase):
         self.assertLess(abs(right1 + ANGLE), 10, "Right motor inaccurate anticlockwise")
         self.assertLess(abs(left2 + ANGLE), 10, "Left motor inaccurate clockwise")
         self.assertLess(abs(right2 - ANGLE), 10, "Right motor inaccurate clockwise")
+        self.assertEqual(stop_code1, 0, "Left motor did not stop correctly")
+        self.assertEqual(stop_code1, 0, "Right motor did not stop correctly")
     
     @unittest.skipIf("translation" not in ACTIVE_TESTS, "translation test skipped")
     def test_translation(self):
@@ -423,7 +438,7 @@ class TestDiffDrive(unittest.TestCase):
         SPEED = 0.1
 
         print(f"Driving forward {DISTANCE} m")
-        left, right = self.dd.translate(DISTANCE, SPEED)
+        left, right, stop_code = self.dd.translate(DISTANCE, SPEED)
         print(f'Motor left drove: {left:.5f} m')
         print(f'Motor right drove: {right:.5f} m')
         self.assertLess(abs(left - DISTANCE), 0.1, "Left motor inaccurate forward")
@@ -432,7 +447,7 @@ class TestDiffDrive(unittest.TestCase):
 
         # drive motors for 0.5m reverse
         print(f"Driving backwards {DISTANCE} m")
-        left, right = self.dd.translate(-DISTANCE, SPEED)
+        left, right, stop_code = self.dd.translate(-DISTANCE, SPEED)
         print(f'Motor left drove: {left:.5f} m')
         print(f'Motor right drove: {right:.5f} m')
         self.assertLess(abs(left + DISTANCE), 0.1, "Left motor inaccurate reverse")
