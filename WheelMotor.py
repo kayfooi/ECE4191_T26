@@ -155,7 +155,7 @@ class DiffDrive:
         enc_l_final = enc_l_init + enc_l_delta
 
         # sample/timeout parameters
-        timeout = abs(enc_l_delta) / speed + 1.5 # seconds
+        timeout = abs(enc_l_delta) / speed + 2.0 # seconds
         sample_time = 30e-3 # seconds
         max_count = round(timeout/sample_time)
         sample_count = 0
@@ -247,7 +247,7 @@ class DiffDrive:
         sample_count = 0
         while enc_l_speed > 0 and enc_r_speed > 0:
             if sample_count >= stop_count:
-                print("Stopped after time")
+                # print("Stopped after time")
                 break
             # Stopping force
             start_sample_l = self.motor_left.odo
@@ -268,7 +268,7 @@ class DiffDrive:
         self.motor_left.stop()
         self.motor_right.stop()
 
-        time.sleep(0.5) # wait for motors to stop
+        time.sleep(1.0) # wait for motors to stop
 
         return (
             self.motor_left.odo - enc_l_init, # resulting left encoder delta
@@ -294,10 +294,10 @@ class DiffDrive:
         r_delta : int
             Resulting right wheel movement
         """
-        m_to_enc = 3380 # multiplier to convert meters to encoder count
+        m_to_enc = 3480 # multiplier to convert meters to encoder count
         enc_dist = disp * m_to_enc
 
-        offset = speed ** 2 * 1300
+        offset = speed ** 2 * 1010
         if disp < 0: offset *= -1
 
         if abs(enc_dist) - abs(offset) > 200:
@@ -308,8 +308,8 @@ class DiffDrive:
         # print(enc_dist, enc_goal, offset)
 
         ld, rd, stop_code = self.PID_speed_control(enc_goal, enc_goal, speed * m_to_enc)
-
-        return (ld / m_to_enc, rd / m_to_enc, stop_code)
+        scale = 1 + speed/0.5 * 0.05
+        return (scale * ld / m_to_enc, scale * rd / m_to_enc, stop_code)
     
     def rotate(self, angle, speed):
         """
@@ -330,24 +330,28 @@ class DiffDrive:
             Resulting right wheel movement
         """
         if angle == 0: return (0, 0)
-        deg_to_enc = 8.2 # multiplier to convert degrees to encoder count
+        deg_to_enc = 11.45 # multiplier to convert degrees to encoder count
+
         offset = speed * 1 if angle > 30 else 10
         if angle > 0:
             ang_enc = angle * deg_to_enc - offset
+            scale = 1
         else:
-            ang_enc = angle * deg_to_enc + offset
+            ang_enc = (angle * deg_to_enc + offset) * 0.98 # negative angle seems to overshoot
+            scale = 1/0.98
         ld, rd, stop_code =self.PID_speed_control(ang_enc, -ang_enc, speed * deg_to_enc)
-        
-        return (ld / deg_to_enc, rd / deg_to_enc, stop_code)
+        if speed > 60:
+            scale *= 1 + 0.0445 * 90 / speed # scale result to account for lost encoder counts (may need to be calibrated)
 
+        return (ld * scale / deg_to_enc, rd * scale / deg_to_enc, stop_code)
 
 class TestDiffDrive(unittest.TestCase):
     ACTIVE_TESTS = [
         # "left_motor",
         # "right_motor",
         # "rotation",
-        # "translation",
-        "ball_detection"
+        "translation",
+        # "ball_detection"
     ]
 
     def setUp(self):
@@ -359,15 +363,15 @@ class TestDiffDrive(unittest.TestCase):
 
         # drive forward
         motor.set_direction(1)
-        motor.drive(0.3)
+        motor.drive(0.5)
         time.sleep(0.5)
         motor.stop()
         time.sleep(0.1)
         midcount = motor.odo
 
         # drive backwards
-        motor.direction = -1
-        motor.drive(0.3)
+        motor.set_direction(-1)
+        motor.drive(0.5)
         time.sleep(0.5)
         motor.stop()
         time.sleep(0.1)
@@ -410,8 +414,8 @@ class TestDiffDrive(unittest.TestCase):
     
     @unittest.skipIf("rotation" not in ACTIVE_TESTS, "rotation test skipped")
     def test_rotation(self):
-        ANGLE = 90
-        SPEED = 30
+        ANGLE = 360
+        SPEED = 45
 
         print(f"rotate {ANGLE}deg anticlockwise")
         left1, right1, stop_code1 = self.dd.rotate(ANGLE, SPEED)
@@ -434,8 +438,8 @@ class TestDiffDrive(unittest.TestCase):
     
     @unittest.skipIf("translation" not in ACTIVE_TESTS, "translation test skipped")
     def test_translation(self):
-        DISTANCE = 0.2
-        SPEED = 0.1
+        DISTANCE = -1
+        SPEED = 0.2
 
         print(f"Driving forward {DISTANCE} m")
         left, right, stop_code = self.dd.translate(DISTANCE, SPEED)
