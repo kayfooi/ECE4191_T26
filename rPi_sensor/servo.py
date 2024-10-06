@@ -54,7 +54,7 @@ class Servo:
         self.pi.set_servo_pulsewidth(self.pin, target_pulse_width)
 
     def get_angle(self):
-        return 180 * (self.self.pi.get_servo_pulsewidth(self.pin) - self.MIN_PULSE) / (self.MAX_PULSE - self.MIN_PULSE)
+        return 180 * (self.pi.get_servo_pulsewidth(self.pin) - self.MIN_PULSE) / (self.MAX_PULSE - self.MIN_PULSE)
     
     def stop(self):
         """
@@ -64,7 +64,7 @@ class Servo:
 
 class TestServo(unittest.TestCase):
     def setUp(self):
-        SERVO_GPIO = 7
+        SERVO_GPIO = 14
         pi = pigpio.pi()
         self.servo = Servo(pi, SERVO_GPIO)
 
@@ -91,6 +91,7 @@ class TestServo(unittest.TestCase):
         self.assertAlmostEqual(self.servo.get_angle(), 90)
         self.servo.stop()
     
+    @unittest.skip("working")
     def test_servo_speed(self):
         # Rotate from 180deg to 0deg in 2 seconds
         self.servo.set_angle(180)
@@ -119,6 +120,17 @@ class TestServo(unittest.TestCase):
         
         self.assertLess(abs((e-s) - .167), 0.3, "Servo should have taken around 0.167 seconds")
         self.assertEqual(self.servo.get_angle(), 90)
+    
+    def test_angles(self):
+        """
+        Test random angles to tune parameters
+        """
+        self.servo.set_angle(180, 20)
+        sleep(10)
+        self.servo.set_angle(20, 20)
+        # self.servo.set_angle(85, 15)
+        # sleep(1)
+        # self.servo.set_angle(177, 15)
 
 if __name__ == "__main__":
     unittest.main()

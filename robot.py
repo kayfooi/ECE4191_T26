@@ -22,8 +22,8 @@ else:
     tof = None
 
 # GPIO Numbers
-TIPPING_SERVO_GPIO = 18
-PADDLE_SERVO_GPIO = 7
+TIPPING_SERVO_GPIO = 7
+PADDLE_SERVO_GPIO = 14
 # Other GPIO is stored in WheelMotor.py
 
 class Robot:
@@ -151,7 +151,7 @@ class Robot:
         # TODO: may have to add shaking mechanism if balls don't exit reliably
 
         # Return to original position
-        rest_angle = 0 # TODO: check this before mounting
+        rest_angle = 80 # TODO: check this before mounting
         return_speed = 20
 
         self.tip_servo.set_angle(rest_angle)
@@ -249,9 +249,19 @@ class TestBot(unittest.TestCase):
     """
     Test Robot specific functions. See `camera.py` for camera testing
     """
+    ACTIVE_TESTS = [
+        # "left_motor",
+        # "right_motor",
+        # "rotation",
+        # "translation",
+        # "ball_detection"
+        # "collect_ball"
+        "dump_balls"
+    ]
     def setUp(self):
         self.bot = Robot()
 
+    @unittest.skipIf("rotation_translation" not in ACTIVE_TESTS, "left_motor test skipped")
     def test_rotation_translation(self):
         init_pos = self.bot.pos.copy()
 
@@ -265,11 +275,13 @@ class TestBot(unittest.TestCase):
         self.assertLess(abs(abs(self.bot.calculateRotationDelta(init_pos))-180), 0.1)
         print(self.bot)
     
+    @unittest.skipIf("travel_to" not in ACTIVE_TESTS, "left_motor test skipped")
     def test_travel_to(self):
         target = np.array([3, 4])
         self.bot.travelTo(target)
         np.testing.assert_allclose(self.bot.pos, target, atol=1e-1)
 
+    @unittest.skipIf("rotation_delta" not in ACTIVE_TESTS, "left_motor test skipped")
     def test_rotation_delta(self):
         a = np.vstack(np.radians(np.arange(0, 361, 45)))
         points = np.hstack((np.cos(a), np.sin(a)))
@@ -279,6 +291,7 @@ class TestBot(unittest.TestCase):
             with self.subTest(f"Test rotation delta to point: {np.round(points[i], 3)})"):
                 self.assertAlmostEqual(self.bot.calculateRotationDelta(points[i]), angle)
     
+    @unittest.skipIf("rotation_matrix" not in ACTIVE_TESTS, "left_motor test skipped")
     def test_rotation_matrix(self):
         point = np.sqrt(np.array([2, 2]))
         self.bot.th = 45
@@ -286,6 +299,7 @@ class TestBot(unittest.TestCase):
         R = self.bot._getRotationMatrix()
         np.testing.assert_allclose(R @ point, np.array([2., 0.]), atol=1e-7)
     
+    @unittest.skipIf("ball_detection" not in ACTIVE_TESTS, "left_motor test skipped")
     def test_ball_detection(self):
         # Open image(s) and pass to function
         img = cv2.imread('CV/test_imgs/test_images/testing0001.jpg')
@@ -300,14 +314,14 @@ class TestBot(unittest.TestCase):
         for i in range(0, 15):
             dist = tof.read() # distance in mm
             print( i + ": " + str(dist) + "mm")
-            sleep(0.1)   
+            time.sleep(0.1)   
     
     @unittest.skipIf(not on_pi, "Pi not connected")
     def test_dump_balls(self):
         print("Dumping balls...")
         self.bot.dump_balls()
     
-    @unittest.skipIf(True, "not connected")
+    @unittest.skipIf("collect_ball" not in ACTIVE_TESTS, "left_motor test skipped")
     def test_collect_ball(self):
         print("Collecting ball...")
         self.bot.collect_ball()

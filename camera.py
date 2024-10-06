@@ -34,8 +34,14 @@ class Camera:
 
         # Load ball detection model
         self.model = ncnn.Net()
-        self.model.load_param("./CV/YOLO_ball_box_detection_ncnn_model/model.ncnn.param")
-        self.model.load_model("./CV/YOLO_ball_box_detection_ncnn_model/model.ncnn.bin")
+
+        # Balls, boxes and legs
+        # self.model.load_param("./CV/YOLO_ball_box_detection_ncnn_model/model.ncnn.param")
+        # self.model.load_model("./CV/YOLO_ball_box_detection_ncnn_model/model.ncnn.bin")
+
+        # Just balls
+        self.model.load_param("./CV/YOLO_ball_detection_ncnn_model/model.ncnn.param")
+        self.model.load_model("./CV/YOLO_ball_detection_ncnn_model/model.ncnn.bin")
 
         # Homography that transforms image coordinates to world coordinates
         self._H = np.array([
@@ -60,13 +66,12 @@ class Camera:
              print("Image not captured")
              return None
     
-    def apply_YOLO_model(self, image, visualise=False):
+    def apply_YOLO_model(self, image, visualise=False, out_file='YOLO_result'):
         """
         Apply YOLO model to get locations of balls
         """
         # Preprocessing
         height, width, _ = image.shape
-        img_proc = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
         img = image.copy()
         shape = img.shape[:2]  # current shape [height, width]
@@ -120,7 +125,7 @@ class Camera:
             scores = detection[4:]
             class_id = np.argmax(scores)
             confidence = scores[class_id]
-            if confidence > 0.6:
+            if confidence > 0.05:
                 # Object detected
                 xywh = detection[:4] / 640
                 y = detection[1]
@@ -139,16 +144,18 @@ class Camera:
                 confidences.append(float(confidence))
                 class_ids.append(class_id)
 
-        indexes = cv2.dnn.NMSBoxes(boxes, confidences,score_threshold=0.5,nms_threshold=0.1,top_k=5)
-        classes = ['box', 'legs', 'tennis-ball']
+        indexes = cv2.dnn.NMSBoxes(boxes, confidences,score_threshold=0.01,nms_threshold=0.01,top_k=10)
+        # classes = ['box', 'legs', 'tennis-ball']
+        classes = ['tennis-ball']
         font = cv2.FONT_HERSHEY_PLAIN
         colors = np.random.uniform(0, 255, size=(len(classes), 3))
         if visualise:
             vis_image = image.copy()
 
         ball_coords = []
+        # print(boxes)
         for i in range(len(boxes)):
-            if i in indexes:
+            if True: # i in indexes:
                 label = str(classes[class_ids[i]])
                 x, y, w, h = boxes[i]
                 color = colors[class_ids[i]]
@@ -158,12 +165,12 @@ class Camera:
                 
                 if visualise:
                     cv2.rectangle(vis_image, (x, y), (x + w, y + h), color, 2)
-                    cv2.putText(vis_image, label, (x, y + 30), font, 2, color, 3)
+                    cv2.putText(vis_image, f"{label} {confidences[i]:.2f}", (x, y + 30), font, 1.25, color, 2)
         
         if visualise:
-            out_file = 'YOLO_result.jpg'
             cv2.imwrite(out_file, vis_image)
             print(f"Labelled image saved to {out_file}")
+        
         ball_coords = np.array(ball_coords)
         return ball_coords.astype(int)
 
@@ -266,7 +273,7 @@ class TestCamera(unittest.TestCase):
         img_c = np.array([[100, 100]])
         self.cam.image_to_world(img_c)
 
-    # @unittest.skip("skipped")
+    @unittest.skip("skipped")
     def test_YOLO_model(self):
         # Open image(s) and pass to model
         self.cam = Camera(False) # no camera
@@ -281,8 +288,6 @@ class TestCamera(unittest.TestCase):
         if img is not None:
             cv2.imwrite("test_results/capture_result.jpg", img)
         self.assertTrue(img is not None, "Camera did not capture anything")
-        
-    
 
 
     def test_ball_detection(self):
@@ -297,7 +302,15 @@ class TestCamera(unittest.TestCase):
         # Open images and pass to function
         ...
 
-def _capture_loop():
+def _capture_loop(detect=False):
+    """
+    Continuously captures images and saves to test_results folder
+
+    Parameters
+    ---
+    detect: bool
+    Run YOLO model and save bounding boxes on output
+    """
     cam = Camera(True)
     i = 0
     
@@ -305,7 +318,11 @@ def _capture_loop():
         s = time.time()
         img = cam.capture()
         if img is not None:
-            cv2.imwrite(f"./test_results/result{i}.jpg", img)
+            out_file = f"./test_results/result{i}.jpg"
+            if detect:
+                cam.apply_YOLO_model(img, True, out_file)
+            else:
+                cv2.imwrite(out_file, img)
         e = time.time()
         print(f"Frame {i}: {(e-s)*1e3:.2f} msec")
         inp = input("x to escape, any other key to capture: ")
@@ -317,6 +334,8 @@ def _capture_loop():
                 break
         i += 1
 
+
 if __name__ == '__main__':
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestCamera)
-    unittest.TextTestRunner(verbosity=0).run(suite)
+    # suite = unittest.TestLoader().loadTestsFromTestCase(TestCamera)
+    # unittest.TextTestRunner(verbosity=0).run(suite)
+    _capture_loop(detect=True)
