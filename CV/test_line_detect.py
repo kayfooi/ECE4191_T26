@@ -11,7 +11,7 @@ e = time.time()
 
 print(f"import taken {(e-s)*1e3} msec")
 
-def speedy_ransac(points, num_iterations=50, threshold=10.0, min_inliers=3):
+def speedy_ransac(points, num_iterations=100, threshold=10.0, min_inliers=3, estimate = None):
     """
     Implement a speedy RANSAC algorithm to find the line of best fit.
     
@@ -29,7 +29,7 @@ def speedy_ransac(points, num_iterations=50, threshold=10.0, min_inliers=3):
     
     for _ in range(num_iterations):
         # Randomly select two points
-        sample = points[np.random.choice(points.shape[0], 2, replace=False)]
+        sample = points[np.random.choice(points.shape[0], 2, replace=True)]
         
         # Calculate slope and intercept
         x1, y1 = sample[0]
@@ -39,6 +39,10 @@ def speedy_ransac(points, num_iterations=50, threshold=10.0, min_inliers=3):
             continue  # Skip vertical lines
         
         slope = (y2 - y1) / (x2 - x1)
+
+        if estimate is not None and abs(estimate - slope) > 0.012:
+            continue # exit this iteration
+
         intercept = y1 - slope * x1
         
         # Calculate distances of all points to the line
@@ -53,7 +57,8 @@ def speedy_ransac(points, num_iterations=50, threshold=10.0, min_inliers=3):
             best_intercept = intercept
         
         if len(best_inliers) > min_inliers:
-            break
+            if estimate is None:
+                break
     
     if len(best_inliers) > min_inliers:
         # Refine the fit using all inliers
@@ -62,9 +67,9 @@ def speedy_ransac(points, num_iterations=50, threshold=10.0, min_inliers=3):
         A = np.vstack([x, np.ones(len(x))]).T
         best_slope, best_intercept = np.linalg.lstsq(A, y, rcond=None)[0]
         
-        return best_slope, best_intercept
+        return best_slope, best_intercept, best_inliers
     else:
-        return (None, None)
+        return (None, None, best_inliers)
 
 
 def detect_white_line(image, target_point, num_paths=10):
@@ -103,7 +108,7 @@ def detect_white_line(image, target_point, num_paths=10):
 
         def blue_white_score(posp, negp):
             # plot_blue_white_score(path, posp, negp)
-            # Compare line to before and after
+            # Compare line sample to before and after
             sample_size = 10
             padding = 5
             pre_sample = path[max(0, posp-padding-sample_size):posp-padding]
@@ -128,6 +133,12 @@ def detect_white_line(image, target_point, num_paths=10):
             pre_change = white_rg - pre_rg
             post_change = white_rg - post_rg
 
+            # Heavily penalise small jumps
+            if pre_change < 10:
+                pre_change = -100
+            if post_change < 10:
+                post_change = -100
+            
             total_score = pre_blue + post_blue + consistency + pre_change + post_change
             # print(f"Total Blue-White Score: {total_score:.2f}")
             return total_score
@@ -202,8 +213,8 @@ def detect_white_line(image, target_point, num_paths=10):
         chosen_peaks.append(pair)
     
     # Find slope and intercept of leading and trailing edges
-    lead_slope, lead_int = speedy_ransac(np.array(leading_points))
-    trail_slope, trail_int = speedy_ransac(np.array(trailing_points))
+    lead_slope, lead_int, lead_inliers = speedy_ransac(np.array(leading_points), threshold=10)
+    trail_slope, trail_int, trail_inliers = speedy_ransac(np.array(trailing_points), threshold=10, estimate=lead_slope)
     
     lines = [
         [lead_slope, lead_int],
@@ -214,13 +225,18 @@ def detect_white_line(image, target_point, num_paths=10):
         # Check the two edges make a sensible line
         grad_diff = abs(lead_slope - trail_slope)
         int_diff = lead_int - trail_int
-        if not (grad_diff < 0.012 and 0 < int_diff < 55):
+        # may depend on resolution (0.012 works well for 640x480px)
+        if not (grad_diff < 0.05 and 0 < int_diff < 55):
             lines = None # invalid detection
     else:
         # No lines found
         lines = None
     
-    return leading_points, trailing_points, np.mean(confidences), all_path_points, all_sobel_data, all_peaks, chosen_peaks, lines
+    confidences = np.array(confidences)
+    lead_confidence = np.sum(confidences[lead_inliers])
+    trail_confidence = np.sum(confidences[trail_inliers])
+    
+    return leading_points, trailing_points, lead_confidence+trail_confidence, all_path_points, all_sobel_data, all_peaks, chosen_peaks, lines
 
 
 def plot_peaks(sobel_data, peaks, path_index, chosen_peaks):
@@ -351,28 +367,30 @@ def plot_blue_white_score(path, posp, negp):
 
 # Example usage
 for n in range(1): # 0, 190, 10):
-    n = 17
+    n = 20
     image_path = f'./test_imgs/test_images/testing{n:04g}.jpg'
+    # image_path = f'./test_imgs/blender/oneball/normal{n:04g}.jpg'
     image = cv2.imread(image_path)
-    target_point = (640, 150)  # Example target point
+    target_points = [(640, 150), (100, 150), (800, 150)]  # Example target points
 
-    s = time.time()
-    leading_edge, trailing_edge, confidence, all_path_points, all_sobel_data, all_peaks, chosen_peaks, lines = detect_white_line(image, target_point, 8)
-    e = time.time()
+    for target_point in target_points:
+        s = time.time()
+        leading_edge, trailing_edge, confidence, all_path_points, all_sobel_data, all_peaks, chosen_peaks, lines = detect_white_line(image, target_point, 12)
+        e = time.time()
 
-    print(f"taken {(e-s)*1e3} msec")
-    # Visualize results (previous visualization code here)
-    # Plot peaks for each path
-    # for i, (sobel_data, peaks, chosen) in enumerate(zip(all_sobel_data, all_peaks, chosen_peaks)):
-    #    plot_peaks(sobel_data, peaks, i, chosen)
+        print(f"taken {(e-s)*1e3} msec")
+        # Visualize results (previous visualization code here)
+        # Plot peaks for each path
+        # for i, (sobel_data, peaks, chosen) in enumerate(zip(all_sobel_data, all_peaks, chosen_peaks)):
+        #    plot_peaks(sobel_data, peaks, i, chosen)
 
-    # Visualize results
-    result_image = visualize_results(image, target_point, leading_edge, trailing_edge, confidence, all_path_points, lines)
+        # Visualize results
+        result_image = visualize_results(image, target_point, leading_edge, trailing_edge, confidence, all_path_points, lines)
 
-    # Display the result
-    cv2.imshow('White Line Detection', result_image)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+        # Display the result
+        cv2.imshow(f'White Line Detection {n}', result_image)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
-    # Optionally, save the result
-    cv2.imwrite('white_line_detection_result.jpg', result_image)
+        # Optionally, save the result
+        cv2.imwrite('white_line_detection_result.jpg', result_image)

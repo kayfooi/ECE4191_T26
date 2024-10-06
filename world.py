@@ -5,11 +5,14 @@ Represents the map of the court
 import numpy as np
 import time
 import unittest
+from matplotlib.patches import Rectangle
 
 QUAD_WIDTH = 4.11 # width of all quadrant
 NETLINE = 6.40 # y distance from net to center line
 BASELINE = 5.48 # y distance from baseline to center line
 SP_OS = 0.2 # Start Point Offset: Start the robot at this offset from corner in both x and y directions
+BOX_LENGTH = 0.6
+BOX_WIDTH = 0.45
 
 QUADRANTS = [
     {
@@ -17,28 +20,32 @@ QUADRANTS = [
         "xrange": [0.00, QUAD_WIDTH],
         "yrange": [0.00, NETLINE],
         "init_pos": [QUAD_WIDTH - SP_OS, NETLINE - SP_OS],
-        "init_heading": -90
+        "init_heading": -90,
+        "box_corner": [BOX_LENGTH/2, BOX_WIDTH/2]
     },
     {
         "name": "Quadrant 2",
         "xrange": [-QUAD_WIDTH, 0.00],
         "yrange": [0.00, NETLINE],
         "init_pos": [-QUAD_WIDTH + SP_OS, NETLINE - SP_OS],
-        "init_heading": -90
+        "init_heading": -90,
+        "box_corner": [-BOX_LENGTH/2, BOX_WIDTH/2]
     },
     {
         "name": "Quadrant 3",
         "xrange": [-QUAD_WIDTH, 0.00],
         "yrange": [-BASELINE, 0.00],
         "init_pos": [-QUAD_WIDTH+SP_OS, -BASELINE+SP_OS],
-        "init_heading": 90
+        "init_heading": 90,
+        "box_corner": [-BOX_LENGTH/2, -BOX_WIDTH/2]
     },
     {
         "name": "Quadrant 4",
         "xrange": [0.00, QUAD_WIDTH],
         "yrange": [-BASELINE, 0.00],
         "init_pos": [QUAD_WIDTH-SP_OS, -BASELINE+SP_OS],
-        "init_heading": 90
+        "init_heading": 90,
+        "box_corner": [BOX_LENGTH/2, -BOX_WIDTH/2]
     }
 ]
 
@@ -50,6 +57,7 @@ class World:
         self.balls = []
         self.target_ball_idx = None
         self.quadrant = QUADRANTS[quadrant-1]
+        self.box_corner = np.array(self.quadrant["box_corner"])
         self.init_time = time.time()
 
         # Generating vantage Points
@@ -125,7 +133,10 @@ class World:
             self.balls.append(ball) # add new ball
             return False # no duplicate found
     
-    def collectTarget(self):
+    def collectedTarget(self):
+        """
+        Remove tennis ball from state
+        """
         self.balls.pop(self.target_ball_idx)
         self.target_ball_idx = None
     
@@ -140,9 +151,16 @@ class World:
 
     
     def is_point_in_quad(self, p):
+        # Check if point lies within quadrant
         xr = self.quadrant["xrange"]
         yr = self.quadrant["yrange"]
-        return xr[0] < p[0] < xr[1] and yr[0] < p[1] < yr[1]
+        in_quad = xr[0] < p[0] < xr[1] and yr[0] < p[1] < yr[1]
+
+        # Check if point lies within box
+        xb = self.box_corner[0]
+        yb = self.box_corner[1]
+        in_box = abs(p[0]) < abs(xb) and abs(p[1]) < abs(yb)
+        return in_quad and not in_box
 
     def plot_court_lines(self, ax):
         """
@@ -152,6 +170,14 @@ class World:
             ax.plot([-QUAD_WIDTH, QUAD_WIDTH], [hline]*2, 'k-', label=None, linewidth=1.5)
         for vline in [-QUAD_WIDTH, 0, QUAD_WIDTH]:
             ax.plot([vline]*2, [NETLINE, -BASELINE], 'k-', label=None, linewidth=1.5)
+    
+    def plot_box(self, ax):
+        """
+        Plots box onto ax
+        """
+        col = 'sandybrown'
+        ax.plot([0, self.box_corner[0]], [self.box_corner[1]]*2, c=col)
+        ax.plot([self.box_corner[0]]*2, [0, self.box_corner[1]], c=col)
     
     def plot_vps(self, ax, c='lightgrey'):
         """
