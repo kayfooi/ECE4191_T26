@@ -66,7 +66,7 @@ class Camera:
              print("Image not captured")
              return None
     
-    def apply_YOLO_model(self, image, visualise=False, out_file='YOLO_result'):
+    def apply_YOLO_model(self, image, state = None, visualise=False, out_file='YOLO_result'):
         """
         Apply YOLO model to get locations of balls
         """
@@ -152,7 +152,7 @@ class Camera:
         if visualise:
             vis_image = image.copy()
 
-        ball_coords = []
+        coords = []
         # print(boxes)
         for i in range(len(boxes)):
             if i in indexes:
@@ -160,8 +160,11 @@ class Camera:
                 x, y, w, h = boxes[i]
                 color = colors[class_ids[i]]
                 
-                if label == 'tennis-ball':
-                    ball_coords.append([x + w/2, y + h])
+                if (state == 'ball' and label == 'tennis-ball'):
+                    coords.append([x + w/2, y + h])
+                
+                elif (state == 'box' and label == 'box'):
+                    coords.append([x + w/2, y + h])
                 
                 if visualise:
                     cv2.rectangle(vis_image, (x, y), (x + w, y + h), color, 2)
@@ -171,8 +174,8 @@ class Camera:
             cv2.imwrite(out_file, vis_image)
             print(f"Labelled image saved to {out_file}")
         
-        ball_coords = np.array(ball_coords)
-        return ball_coords.astype(int)
+        coords = np.array(coords)
+        return coords.astype(int)
 
     def detectBalls(self, img=None):
         """
@@ -192,7 +195,7 @@ class Camera:
             # capture from camera
             img = self.capture()
         
-        ball_locs = self.apply_YOLO_model(img)
+        ball_locs = self.apply_YOLO_model(img, state = 'ball')
 
         # translate into world coordinates
         return self.image_to_world(ball_locs)
@@ -230,8 +233,10 @@ class Camera:
         if img is None:
             # capture from camera
             img = self.capture()
-        
-        return None
+
+        box_loc = self.apply_YOLO_model(img, state = 'box')
+
+        return self.image_to_world(box_loc)
     
     def detect_lines(self, img=None):
         """

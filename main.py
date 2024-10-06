@@ -115,6 +115,7 @@ while W.getElapsedTime() < COMPETITION_DURATION:
             W.collectTarget()
             collected_balls += 1
             plot_state("Collected Ball")
+            R.collect_ball()
         
         
     else:
@@ -145,10 +146,66 @@ while W.getElapsedTime() < COMPETITION_DURATION:
     # Navigate to box
     if collected_balls == BALL_CAPACITY or (COMPETITION_DURATION - W.getElapsedTime()) < DUMP_TIME:
         # 5. TODO: Navigate to and reverse up to the box
-        ...
+
+        target, target_idx = W.getClosestBall(R.pos)
+        W.target_ball_idx = target_idx
+
+        plot_state("First detection")
+    
+        if target is not None:
+            # Face ball
+            R.rotate(R.calculateRotationDelta(target))
+
+            plot_state("Rotation")
+
+            # Double check existence of ball
+            # balls = R.detectBalls()
+            # for b in balls:
+            #   W.addBall(b)
+            
+            target_checked, target_checked_idx = W.getClosestBall(R.pos)
+            rotation = R.calculateRotationDelta(target_checked)
+            
+            # Facing the ball (within X degrees)
+            if abs(rotation) < 5:
+                # Travel 99% of the distance to the ball
+                R.travelTo(target_checked, 10, 0.3, 0.99)
+
+                plot_state("Moved close to ball")
+                # TODO: 3. Collect ball
+                W.collectTarget()
+                collected_balls += 1
+                plot_state("Collected Ball")
+        
+        else:
+            # Decide which direction to rotate on the spot
+            if consecutive_rotations == 0:
+                if W.is_rotation_sensible(rotation_increment, R):
+                    rotation_direction = 1
+                elif W.is_rotation_sensible(-rotation_increment, R):
+                    rotation_direction = -1
+                else:    
+                    vp_idx = (vp_idx + 1) % len(W.vantage_points)
+                    R.travelTo(W.vantage_points[vp_idx])
+
+            # Rotate on the spot
+            if consecutive_rotations * rotation_increment < 360 and W.is_rotation_sensible(rotation_increment, R):
+                R.rotate(rotation_increment)
+                consecutive_rotations += 1
+                plot_state("Rotation because no balls found")
+            # or move to new vantage point
+            else:
+                vp_idx = (vp_idx + 1) % len(W.vantage_points)
+                R.travelTo(W.vantage_points[vp_idx])
+                plot_state("Translation because no balls found")
+
+        # boxPosition = determineBoxPosition(box)
+        # R.travelTo(boxPosition)
+        # R.rotate(180)
 
         # 6. TODO: Dump balls and re-calibrate location/rotation
-        ...
+        R.dump_balls()
+
         
         
 
