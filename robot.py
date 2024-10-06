@@ -16,8 +16,8 @@ except ImportError:
 
 if on_pi:
     from rPi_sensor import laser
-    tof = laser.PiicoDev_VL53L1X()
-    from rPi_sensor.servo import Servo
+    # tof = laser.PiicoDev_VL53L1X()
+    from servo import Servo
 else:
     tof = None
 
@@ -33,15 +33,17 @@ class Robot:
         if on_pi:
             self.pi = pigpio.pi()
             self.dd = DiffDrive(self.pi)
-            self.tip_servo = Servo(self.pi, TIPPING_SERVO_GPIO) 
-            self.paddle_servo = Servo(self.pi, PADDLE_SERVO_GPIO)
+            
+            self.tip_servo = Servo(self.pi, TIPPING_SERVO_GPIO, 180) 
+        
+            self.paddle_servo = Servo(self.pi, PADDLE_SERVO_GPIO, 177)
         else:
             self.pi = None 
             self.dd = None 
             self.tip_servo = None 
             self.paddle_servo = None
         
-        self.camera = Camera(False)
+        self.camera = Camera()
     
     def is_on_pi(self):
         return on_pi
@@ -126,12 +128,16 @@ class Robot:
         """
         Actuates paddle mechanism to collect ball
         """
-        rest_angle = 0 # TODO: check this before mounting
-        collect_angle = 150 # TODO: check this before mounting
-        collect_speed = 50 # degrees per second
+        rest_angle = 180 # horizontal paddle
+        collect_angle = 12 # paddle aligns with bucket
+        collect_speed = 30 # degrees per second (can't be too quick or servo will stall)
+        
+        # make sure it is at home
+        self.paddle_servo.set_angle(rest_angle, collect_speed)
+
         self.paddle_servo.set_angle(collect_angle, collect_speed)
-        time.sleep(2) # allow the ball to roll off
-        self.paddle_servo.set_angle(rest_angle)
+        time.sleep(1) # allow the ball to roll off
+        self.paddle_servo.set_angle(rest_angle, 50)
         time.sleep(1)
         self.paddle_servo.stop()
 
@@ -143,20 +149,26 @@ class Robot:
         Actuates tipping mechanism to dump balls
         """
         # Dump
-        dump_angle = 90 # TODO: check this before mounting
-        dump_speed = 10 # degrees per second
+        dump_angle = 85 # 
+        dump_speed = 15 # degrees per second
+
+        # set paddle servo out of the way
+        self.paddle_servo.set_angle(135)
 
         self.tip_servo.set_angle(dump_angle, dump_speed)
-        time.sleep(5) # allow balls to exit
+        time.sleep(3) # allow balls to exit
         # TODO: may have to add shaking mechanism if balls don't exit reliably
 
         # Return to original position
-        rest_angle = 80 # TODO: check this before mounting
-        return_speed = 20
+        rest_angle = 177 # rest on the lip
+        return_speed = 50
 
-        self.tip_servo.set_angle(rest_angle)
+        self.tip_servo.set_angle(rest_angle, return_speed)
         time.sleep(0.5)
         self.tip_servo.stop()
+
+        # return paddle servo to home
+        self.paddle_servo.set_angle(180)
     
     # -------- HELPER FUNCTIONS -----------
     
@@ -254,9 +266,10 @@ class TestBot(unittest.TestCase):
         # "right_motor",
         # "rotation",
         # "translation",
-        # "ball_detection"
+        "ball_detection_cam"
         # "collect_ball"
-        "dump_balls"
+        # "dump_balls"
+        # "collect_and_dump"
     ]
     def setUp(self):
         self.bot = Robot()
@@ -308,7 +321,19 @@ class TestBot(unittest.TestCase):
         # np.testing.assert_allclose(res, np.array([
         #     [0.071, 0.91]
         # ]), atol=0.005)
+    
+    @unittest.skipIf("ball_detection_cam" not in ACTIVE_TESTS, "left_motor test skipped")
+    def test_ball_detection_cam(self):
+        # Open image(s) and pass to function
+        res = self.bot.detectBalls()
+        print(res)
+        # np.testing.assert_allclose(res, np.array([
+        #     [0.071, 0.91]
+        # ]), atol=0.005)
+    
+     
 
+    @unittest.skipIf("laser" not in ACTIVE_TESTS, "left_motor test skipped")
     def test_laser(self):
 
         for i in range(0, 15):
@@ -316,7 +341,8 @@ class TestBot(unittest.TestCase):
             print( i + ": " + str(dist) + "mm")
             time.sleep(0.1)   
     
-    @unittest.skipIf(not on_pi, "Pi not connected")
+
+    @unittest.skipIf("dump_balls" not in ACTIVE_TESTS, "left_motor test skipped")
     def test_dump_balls(self):
         print("Dumping balls...")
         self.bot.dump_balls()
@@ -325,6 +351,14 @@ class TestBot(unittest.TestCase):
     def test_collect_ball(self):
         print("Collecting ball...")
         self.bot.collect_ball()
+    
+    @unittest.skipIf("collect_and_dump" not in ACTIVE_TESTS, "left_motor test skipped")
+    def test_collect_and_dump(self):
+        """
+        Ensures collecting and dumping is done in the right order
+        """
+        self.bot.collect_ball()
+        self.bot.dump_balls()
 
 if __name__ == '__main__':
     unittest.main()

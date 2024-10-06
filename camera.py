@@ -125,7 +125,7 @@ class Camera:
             scores = detection[4:]
             class_id = np.argmax(scores)
             confidence = scores[class_id]
-            if confidence > 0.05:
+            if confidence > 0.5:
                 # Object detected
                 xywh = detection[:4] / 640
                 y = detection[1]
@@ -155,7 +155,7 @@ class Camera:
         ball_coords = []
         # print(boxes)
         for i in range(len(boxes)):
-            if True: # i in indexes:
+            if i in indexes:
                 label = str(classes[class_ids[i]])
                 x, y, w, h = boxes[i]
                 color = colors[class_ids[i]]

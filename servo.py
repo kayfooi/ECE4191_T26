@@ -6,10 +6,11 @@ class Servo:
     MAX_PULSE = 2400 # usec
     MIN_PULSE = 600
     
-    def __init__(self, pi, pin):
+    def __init__(self, pi, pin, home_angle):
         self.pi = pi
         self.pin = pin
-        self.pi.set_mode(pin, pigpio.OUTPUT)
+        self.set_angle(home_angle)
+        # pi.set_mode(pin, pigpio.OUTPUT)
         
 
     def set_angle(self, angle, speed=-1):
@@ -33,6 +34,7 @@ class Servo:
             self.pi.set_servo_pulsewidth(self.pin, target_pulse_width)
             return
         
+        # self.pi.set_mode(self.pin, 1)
         # Increment servo at a set speed
         pulse_speed = get_pw(speed) - self.MIN_PULSE
         update_delay = 1/50 # sec (Update the servo pulsewidth every update_delay seconds)
@@ -125,9 +127,12 @@ class TestServo(unittest.TestCase):
         """
         Test random angles to tune parameters
         """
-        self.servo.set_angle(180, 20)
-        sleep(10)
-        self.servo.set_angle(20, 20)
+        # Paddle Mechanism
+        self.servo.set_angle(180, 50)
+        sleep(3)
+        self.servo.set_angle(12, 30)
+
+        # Dumping Mechanism
         # self.servo.set_angle(85, 15)
         # sleep(1)
         # self.servo.set_angle(177, 15)
