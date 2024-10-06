@@ -76,7 +76,7 @@ collected_balls = 0
 
 plot_state("Initial state")
 
-while W.getElapsedTime() < COMPETITION_DURATION:
+while W.getElapsedTime() < COMPETITION_DURATION: 
     # 1. Identify and locate tennis balls
     balls = R.detectBalls(sim_frame)
 
@@ -171,11 +171,18 @@ while W.getElapsedTime() < COMPETITION_DURATION:
                 # Travel 99% of the distance to the ball
                 R.travelTo(target_checked, 10, 0.3, 0.99)
 
-                plot_state("Moved close to ball")
-                # TODO: 3. Collect ball
+                R.rotate(180)
+
+                plot_state("Moved close to box")
+
+                # TODO new drive function that makes the bot go straight until the infared sensor goes off 
+                
+                
                 W.collectTarget()
-                collected_balls += 1
-                plot_state("Collected Ball")
+                R.dump_balls()
+
+                plot_state("Deposited Balls")
+                # TODO drive away from box ( if we have time itd be cool )
         
         else:
             # Decide which direction to rotate on the spot
@@ -204,7 +211,7 @@ while W.getElapsedTime() < COMPETITION_DURATION:
         # R.rotate(180)
 
         # 6. TODO: Dump balls and re-calibrate location/rotation
-        R.dump_balls()
+        
 
         
         
