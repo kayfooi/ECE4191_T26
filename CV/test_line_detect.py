@@ -9,7 +9,7 @@ from scipy.signal import find_peaks
 import matplotlib.pyplot as plt
 e = time.time()
 
-GRADIENT_SIMILARITY_THRESH = 0.015
+GRADIENT_SIMILARITY_THRESH = 0.03
 
 print(f"import taken {(e-s)*1e3} msec")
 
@@ -59,8 +59,7 @@ def speedy_ransac(points, num_iterations=100, threshold=10.0, min_inliers=3, est
             best_intercept = intercept
         
         if len(best_inliers) > min_inliers:
-            if estimate is None:
-                break
+            break
     
     if len(best_inliers) > min_inliers:
         # Refine the fit using all inliers
@@ -74,11 +73,19 @@ def speedy_ransac(points, num_iterations=100, threshold=10.0, min_inliers=3, est
         return (None, None, best_inliers)
 
 
-def detect_white_line(image, target_point, num_paths=10):
+
+
+def detect_white_line(image, target_point, num_paths=10, debug=False):
+    """
+    Detect if there is a white line between the target point and the bottom mid-point of the image
+    """
     height, width = image.shape[:2]
     mid_bottom = (width // 2, height - 1)
     
     def extract_path(start, end, offset):
+        """
+        Extract a single pixel path to the point
+        """
         x1, y1 = start
         x2, y2 = end
         path_length = int(np.sqrt((x2 - x1)**2 + (y2 - y1)**2))
@@ -91,10 +98,16 @@ def detect_white_line(image, target_point, num_paths=10):
         return image[y, x], np.array(list(zip(x, y)))
     
     def process_path(path):
+        """
+        Find potential white segment in path
+        """
         # Apply Sobel Y filter
         sobel_y = cv2.Sobel(path, cv2.CV_64F, 0, 1, ksize=3)
         
         def detect_peaks(channel, take_max = 5):
+            """
+            detect peaks in gradient (i.e. edges)
+            """
             positive_peaks, _ = find_peaks(channel, distance=10)
             negative_peaks, _ = find_peaks(-channel, distance=10)
             
@@ -109,6 +122,9 @@ def detect_white_line(image, target_point, num_paths=10):
         g_pos_peaks, g_neg_peaks = detect_peaks(sobel_y[:, 1])
 
         def blue_white_score(posp, negp):
+            """
+            Looks at the blueness of surrounding pixels and whiteness of potential white segment
+            """
             # plot_blue_white_score(path, posp, negp)
             # Compare line sample to before and after
             sample_size = 10
@@ -148,6 +164,9 @@ def detect_white_line(image, target_point, num_paths=10):
 
         # Calculate confidence scores
         def calculate_best(pos_peaks, neg_peaks, channel):
+            """
+            Scoring each peak
+            """
             best_score = 0
             best_pair = None
             SPACE_BETWEEN_POS_NEG = 40 # roughly max line width
@@ -172,14 +191,19 @@ def detect_white_line(image, target_point, num_paths=10):
         r_pair, r_confidence = calculate_best(r_pos_peaks, r_neg_peaks, sobel_y[:, 0])
         g_pair, g_confidence = calculate_best(g_pos_peaks, g_neg_peaks, sobel_y[:, 1])
         
-        # Combine r and g
+        # Combine r and g scores
         conf = 0
         pair = np.array([0, 0])
+
+        # Both red and green channels have identified a segment
         if r_confidence != 0 and g_confidence != 0:
             distance = np.linalg.norm(r_pair - g_pair)
+
+            # Average the position of the peaks if they are close
             if distance < 10:
                 pair = (r_pair + g_pair) / 2 # average coordinates
                 conf = (1 - distance/50) * (r_confidence + g_confidence)
+            # Take red channel if they are not close
             else:
                 pair = r_pair
                 conf = r_confidence
@@ -190,34 +214,49 @@ def detect_white_line(image, target_point, num_paths=10):
             pair = g_pair
             conf = g_confidence
 
-        return conf, sobel_y, (r_pos_peaks, r_neg_peaks, g_pos_peaks, g_neg_peaks), pair.astype(int)
+        if debug:
+            return conf, sobel_y, (r_pos_peaks, r_neg_peaks, g_pos_peaks, g_neg_peaks), pair.astype(int)
+        else:
+            return pair.astype(int), conf
 
     # Extract and process multiple paths
-    offsets = np.linspace(-width // 10, width // 10, num_paths)
-    confidences = []
-    all_path_points = []
-    all_sobel_data = []
-    all_peaks = []
-    leading_points = []
-    trailing_points = []
+    offsets = np.linspace(-width // 5, width // 5, num_paths)
     chosen_peaks = []
+
+    if debug:
+        confidences = []
+        all_path_points = []
+        all_sobel_data = []
+        all_peaks = []
+        leading_points = []
+        trailing_points = []
+        
+
     for offset in offsets:
         path, path_points = extract_path(mid_bottom, target_point, int(offset))
-        confidence, sobel_data, peaks, pair = process_path(path)
 
-        leading_points.append(path_points[pair[0]])
-        trailing_points.append(path_points[pair[1]])
-
-        confidences.append(confidence)
-        all_path_points.append(path_points)
-        all_sobel_data.append(sobel_data)
-        all_peaks.append(peaks)
+        if debug:
+            confidence, sobel_data, peaks, pair = process_path(path)
+            leading_points.append(path_points[pair[0]])
+            trailing_points.append(path_points[pair[1]])
+            all_path_points.append(path_points)
+            all_sobel_data.append(sobel_data)
+            all_peaks.append(peaks)
+            
+        else:
+            confidence, pair = process_path(path)
+        
         chosen_peaks.append(pair)
+        confidences.append(confidence)
     
     # Find slope and intercept of leading and trailing edges
     lead_slope, lead_int, lead_inliers = speedy_ransac(np.array(leading_points), threshold=10)
     trail_slope, trail_int, trail_inliers = speedy_ransac(np.array(trailing_points), threshold=10, estimate=lead_slope)
     
+    confidences = np.array(confidences)
+    lead_confidence = np.sum(confidences[lead_inliers])
+    trail_confidence = np.sum(confidences[trail_inliers])
+
     lines = [
         [lead_slope, lead_int],
         [trail_slope, trail_int]
@@ -228,18 +267,15 @@ def detect_white_line(image, target_point, num_paths=10):
         grad_diff = abs(lead_slope - trail_slope)
         int_diff = lead_int - trail_int
         # may depend on resolution (GRADIENT_SIMILARITY_THRESH works well for 640x480px)
-        if not (grad_diff < 0.05 and 0 < int_diff < 55):
+        if not (grad_diff < GRADIENT_SIMILARITY_THRESH and 0 < int_diff < 55):
             lines = None # invalid detection
     else:
         # No lines found
         lines = None
-    
-    confidences = np.array(confidences)
-    lead_confidence = np.sum(confidences[lead_inliers])
-    trail_confidence = np.sum(confidences[trail_inliers])
-    
-    return leading_points, trailing_points, lead_confidence+trail_confidence, all_path_points, all_sobel_data, all_peaks, chosen_peaks, lines
-
+    if debug:
+        return leading_points, trailing_points, lead_confidence + trail_confidence, all_path_points, all_sobel_data, all_peaks, chosen_peaks, lines
+    else:
+        return lines, lead_confidence + trail_confidence
 
 def plot_peaks(sobel_data, peaks, path_index, chosen_peaks):
     r_pos_peaks, r_neg_peaks, g_pos_peaks, g_neg_peaks = peaks
@@ -368,16 +404,14 @@ def plot_blue_white_score(path, posp, negp):
     plt.show()
 
 # Example usage
-for n in range(1):
-    n = 180
+for n in range(0, 190, 10):
     image_path = f'./test_imgs/test_images/testing{n:04g}.jpg'
     # image_path = f'./test_imgs/blender/oneball/normal{n:04g}.jpg'
     image = cv2.imread(image_path)
-    target_points = [(640, 150), (100, 150), (800, 150)]  # Example target points
-
+    target_points = [(640, 200), (100, 200), (800, 150)]  # Example target points
     for target_point in target_points:
         s = time.time()
-        leading_edge, trailing_edge, confidence, all_path_points, all_sobel_data, all_peaks, chosen_peaks, lines = detect_white_line(image, target_point, 12)
+        leading_edge, trailing_edge, confidence, all_path_points, all_sobel_data, all_peaks, chosen_peaks, lines = detect_white_line(image, target_point, 12, True)
         e = time.time()
 
         print(f"taken {(e-s)*1e3} msec")
