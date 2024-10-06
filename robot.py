@@ -16,7 +16,7 @@ except ImportError:
 
 if on_pi:
     from rPi_sensor import laser
-    tof = laser.PiicoDev_VL53L1X
+    tof = laser.PiicoDev_VL53L1X()
     from rPi_sensor.servo import Servo
 else:
     tof = None
@@ -294,7 +294,13 @@ class TestBot(unittest.TestCase):
         # np.testing.assert_allclose(res, np.array([
         #     [0.071, 0.91]
         # ]), atol=0.005)
-    
+
+    def test_laser(self):
+
+        for i in range(0, 15):
+            dist = tof.read() # distance in mm
+            print( i + ": " + str(dist) + "mm")
+            sleep(0.1)   
     
     @unittest.skipIf(not on_pi, "Pi not connected")
     def test_dump_balls(self):
