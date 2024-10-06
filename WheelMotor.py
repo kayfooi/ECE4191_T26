@@ -16,6 +16,9 @@ RIGHT_IN2 = 20
 
 IR__BALLDETECT_IN = 5 # GPIO Number for IR Sensor (S pin)
 
+IR__REVERSEPARK = 6 # This means GPIO6 which is pin 31
+
+
 class DCMotor:
     def __init__(self, pi:int, enc:int, en:int, in1:int, in2:int, for_dir = [0, 1]):
         """
@@ -185,6 +188,11 @@ class DiffDrive:
             # May need to double check to avoid this triggering randomly
             if self.pi.read(IR__BALLDETECT_IN) == 0:
                 print("IR Triggered. Stopping!")
+                stop_code = 1
+                break
+
+            if self.pi.read(IR__REVERSEPARK) == 0: # Should trigger when robot is almost flush against box 
+                print("Reverse IR Triggered. Stopping!")
                 stop_code = 1
                 break
 
