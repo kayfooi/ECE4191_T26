@@ -9,6 +9,8 @@ from scipy.signal import find_peaks
 import matplotlib.pyplot as plt
 e = time.time()
 
+GRADIENT_SIMILARITY_THRESH = 0.015
+
 print(f"import taken {(e-s)*1e3} msec")
 
 def speedy_ransac(points, num_iterations=100, threshold=10.0, min_inliers=3, estimate = None):
@@ -40,7 +42,7 @@ def speedy_ransac(points, num_iterations=100, threshold=10.0, min_inliers=3, est
         
         slope = (y2 - y1) / (x2 - x1)
 
-        if estimate is not None and abs(estimate - slope) > 0.012:
+        if estimate is not None and abs(estimate - slope) > GRADIENT_SIMILARITY_THRESH:
             continue # exit this iteration
 
         intercept = y1 - slope * x1
@@ -225,7 +227,7 @@ def detect_white_line(image, target_point, num_paths=10):
         # Check the two edges make a sensible line
         grad_diff = abs(lead_slope - trail_slope)
         int_diff = lead_int - trail_int
-        # may depend on resolution (0.012 works well for 640x480px)
+        # may depend on resolution (GRADIENT_SIMILARITY_THRESH works well for 640x480px)
         if not (grad_diff < 0.05 and 0 < int_diff < 55):
             lines = None # invalid detection
     else:
@@ -366,8 +368,8 @@ def plot_blue_white_score(path, posp, negp):
     plt.show()
 
 # Example usage
-for n in range(1): # 0, 190, 10):
-    n = 20
+for n in range(1):
+    n = 180
     image_path = f'./test_imgs/test_images/testing{n:04g}.jpg'
     # image_path = f'./test_imgs/blender/oneball/normal{n:04g}.jpg'
     image = cv2.imread(image_path)
