@@ -3,6 +3,7 @@ import cv2
 import time
 import unittest
 import ncnn # faster/lighter than ultralytics and torch
+import CV.line_detect as line_detect
 
 class Camera:
     """
@@ -177,7 +178,7 @@ class Camera:
         coords = np.array(coords)
         return coords.astype(int)
 
-    def detectBalls(self, img=None):
+    def detectBalls(self, img=None, visualise=False):
         """
         Captures Image and detects tennis ball locations in world coordinates relative to camera
 
@@ -197,8 +198,20 @@ class Camera:
         
         ball_locs = self.apply_YOLO_model(img, state = 'ball')
 
+        # Detect if there is a line befor the ball
+        # This may be better to apply to a closest ball or if there is uncertainty a ball lies within our quadrant
+        if visualise:
+            result_img = img.copy()
+        for target in ball_locs:
+            line_pair, confidence = line_detect.detect_white_line(img, target, 12, debug=False)
+            if visualise:
+                result_img = line_detect.visualize_results(result_img, target, confidence, line_pair)
+        
         # translate into world coordinates
-        return self.image_to_world(ball_locs)
+        if visualise:
+            return self.image_to_world(ball_locs), result_img
+        else:
+            return self.image_to_world(ball_locs)
         
 
     def image_to_world(self, image_coords):
@@ -286,6 +299,7 @@ class TestCamera(unittest.TestCase):
         res = self.cam.apply_YOLO_model(img, True)
         print("Ball detected at:", res)
 
+    @unittest.skip("skipped")
     def test_capture(self):
         self.cam = Camera(True)
         self.startTime = time.time()
@@ -297,7 +311,11 @@ class TestCamera(unittest.TestCase):
 
     def test_ball_detection(self):
         # Open image(s) and pass to function
-        ...
+        self.cam = Camera(False)
+        image_path = f'CV/test_imgs/test_images/testing{180:04g}.jpg'
+        img = cv2.imread(image_path)
+        locs, result_img = self.cam.detectBalls(img, visualise=True)
+        cv2.imwrite("test_results/ball_detect_result.jpg", result_img)
     
     def test_line_detection(self):
         # Open images and pass to function
@@ -341,6 +359,6 @@ def _capture_loop(detect=False):
 
 
 if __name__ == '__main__':
-    # suite = unittest.TestLoader().loadTestsFromTestCase(TestCamera)
-    # unittest.TextTestRunner(verbosity=0).run(suite)
-    _capture_loop(detect=True)
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestCamera)
+    unittest.TextTestRunner(verbosity=0).run(suite)
+    # _capture_loop(detect=True)

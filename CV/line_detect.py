@@ -5,13 +5,13 @@ s = time.time()
 import numpy as np
 import cv2
 from scipy.signal import find_peaks
-# from sklearn.linear_model import RANSACRegressor
 import matplotlib.pyplot as plt
 e = time.time()
 
+# Comparing the two edges of a white line gradients should be similar
 GRADIENT_SIMILARITY_THRESH = 0.03
 
-print(f"import taken {(e-s)*1e3} msec")
+# print(f"import taken {(e-s)*1e3} msec")
 
 def speedy_ransac(points, num_iterations=100, threshold=10.0, min_inliers=3, estimate = None):
     """
@@ -222,30 +222,30 @@ def detect_white_line(image, target_point, num_paths=10, debug=False):
     # Extract and process multiple paths
     offsets = np.linspace(-width // 5, width // 5, num_paths)
     chosen_peaks = []
+    confidences = []
+    leading_points = []
+    trailing_points = []
 
     if debug:
-        confidences = []
         all_path_points = []
         all_sobel_data = []
         all_peaks = []
-        leading_points = []
-        trailing_points = []
-        
 
     for offset in offsets:
         path, path_points = extract_path(mid_bottom, target_point, int(offset))
 
         if debug:
             confidence, sobel_data, peaks, pair = process_path(path)
-            leading_points.append(path_points[pair[0]])
-            trailing_points.append(path_points[pair[1]])
+            
             all_path_points.append(path_points)
             all_sobel_data.append(sobel_data)
             all_peaks.append(peaks)
             
         else:
-            confidence, pair = process_path(path)
+            pair, confidence = process_path(path)
         
+        leading_points.append(path_points[pair[0]])
+        trailing_points.append(path_points[pair[1]])
         chosen_peaks.append(pair)
         confidences.append(confidence)
     
@@ -273,9 +273,9 @@ def detect_white_line(image, target_point, num_paths=10, debug=False):
         # No lines found
         lines = None
     if debug:
-        return leading_points, trailing_points, lead_confidence + trail_confidence, all_path_points, all_sobel_data, all_peaks, chosen_peaks, lines
+        return leading_points, trailing_points, (lead_confidence + trail_confidence)/num_paths, all_path_points, all_sobel_data, all_peaks, chosen_peaks, lines
     else:
-        return lines, lead_confidence + trail_confidence
+        return lines, (lead_confidence + trail_confidence) / num_paths
 
 def plot_peaks(sobel_data, peaks, path_index, chosen_peaks):
     r_pos_peaks, r_neg_peaks, g_pos_peaks, g_neg_peaks = peaks
@@ -303,8 +303,7 @@ def plot_peaks(sobel_data, peaks, path_index, chosen_peaks):
     plt.show()
 
 # The visualize_results function and example usage remain the same as in the previous version
-
-def visualize_results(image, target_point, leading_edge, trailing_edge, confidence, all_path_points, lines):
+def visualize_results(image, target_point, confidence, lines, leading_edge = [], trailing_edge = [], all_path_points=[]):
     height, width = image.shape[:2]
     mid_bottom = (width // 2, height - 1)
     
@@ -404,29 +403,36 @@ def plot_blue_white_score(path, posp, negp):
     plt.show()
 
 # Example usage
-for n in range(0, 190, 10):
-    image_path = f'./test_imgs/test_images/testing{n:04g}.jpg'
-    # image_path = f'./test_imgs/blender/oneball/normal{n:04g}.jpg'
-    image = cv2.imread(image_path)
-    target_points = [(640, 200), (100, 200), (800, 150)]  # Example target points
-    for target_point in target_points:
-        s = time.time()
-        leading_edge, trailing_edge, confidence, all_path_points, all_sobel_data, all_peaks, chosen_peaks, lines = detect_white_line(image, target_point, 12, True)
-        e = time.time()
+if __name__ == "__main__":
+    for n in range(0, 100, 10):
+        image_path = f'./test_imgs/test_images/testing{n:04g}.jpg'
+        # image_path = f'./test_imgs/blender/oneball/normal{n:04g}.jpg'
+        image = cv2.imread(image_path)
+        target_points = [(640, 200), (100, 200), (800, 150)]  # Example target points
+        for target_point in target_points:
+            s = time.time()
+            leading_edge, trailing_edge, confidence, all_path_points, all_sobel_data, all_peaks, chosen_peaks, lines = detect_white_line(image, target_point, 12, True)
+            e = time.time()
 
-        print(f"taken {(e-s)*1e3} msec")
-        # Visualize results (previous visualization code here)
-        # Plot peaks for each path
-        # for i, (sobel_data, peaks, chosen) in enumerate(zip(all_sobel_data, all_peaks, chosen_peaks)):
-        #    plot_peaks(sobel_data, peaks, i, chosen)
+            print(f"Debug taken {(e-s)*1e3} msec")
 
-        # Visualize results
-        result_image = visualize_results(image, target_point, leading_edge, trailing_edge, confidence, all_path_points, lines)
+            s = time.time()
+            lines, confidence = detect_white_line(image, target_point, 12, debug=False)
+            e = time.time()
 
-        # Display the result
-        cv2.imshow(f'White Line Detection {n}', result_image)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+            print(f"No debug taken {(e-s)*1e3} msec")
+            # Visualize results (previous visualization code here)
+            # Plot peaks for each path
+            # for i, (sobel_data, peaks, chosen) in enumerate(zip(all_sobel_data, all_peaks, chosen_peaks)):
+            #    plot_peaks(sobel_data, peaks, i, chosen)
 
-        # Optionally, save the result
-        cv2.imwrite('white_line_detection_result.jpg', result_image)
+            # Visualize results
+            result_image = visualize_results(image, target_point, confidence, lines, leading_edge, trailing_edge, all_path_points)
+
+            # Display the result
+            # cv2.imshow(f'White Line Detection {n}', result_image)
+            # cv2.waitKey(0)
+            # cv2.destroyAllWindows()
+
+            # Optionally, save the result
+            cv2.imwrite('white_line_detection_result.jpg', result_image)
