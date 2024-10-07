@@ -162,5 +162,5 @@ def convert_pt_to_ncnn(ptpath):
 
 if __name__ == "__main__":
     # convert_pt_to_ncnn("YOLO_ball_detection.pt")
-    # convert_pt_to_ncnn("YOLO_ball_box_detection.pt")
-    test_NCNN("YOLO_ball_box_detection")
+    convert_pt_to_ncnn("YOLO_ball_box_detection.pt")
+    # test_NCNN("YOLO_ball_box_detection")
