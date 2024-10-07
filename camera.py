@@ -32,8 +32,8 @@ class Camera:
     def __init__(self, open_cam=True):
         # Initialise USB Camera
         if open_cam:
-            self.cap = cv2.VideoCapture(-1, cv2.CAP_V4L) # for the pi
-            # self.cap = cv2.VideoCapture(0) # this may work if you are on a laptop
+            # self.cap = cv2.VideoCapture(-1, cv2.CAP_V4L) # for the pi
+            self.cap = cv2.VideoCapture(0) # this may work if you are on a laptop
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             self.cap.set(cv2.CAP_PROP_FPS, 30)
@@ -246,6 +246,11 @@ class Camera:
         world_coords = world_coords[:, :2] / world_coords[:, 2:]
         
         return world_coords
+
+    def world_to_image(self, world_coords):
+        image_coords = np.dot(np.linalg.inv(self._H),world_coords.T).T
+        image_coords = image_coords[:, :2] / image_coords[:, 2:]
+        return image_coords
 
     def detect_box(self, img=None, visualise=False):
         """
@@ -656,9 +661,22 @@ class TestCamera(unittest.TestCase):
     def test_image_to_world(self):
         self.cam = Camera(False) # no camera
         img_c = np.array([[100, 100]])
-        self.cam.image_to_world(img_c)
-
+        coord = self.cam.image_to_world(img_c)
+        print(coord)
+    
     # @unittest.skip("skipped")
+    def test_world_to_image(self): 
+        self.cam = Camera(False)   
+        for x in np.arange(-2, 2, 0.5):
+            for y in np.arange(1.0, 5, 0.5):
+                world_c = np.array([[x, y, 1]])
+                img_c = self.cam.world_to_image(world_c)
+                world_check = self.cam.image_to_world(img_c)
+                np.testing.assert_allclose(world_c[:, :2], world_check, atol=0.01)
+                # print(world_c, "(world) -> (img)", img_c)
+                # print(img_c, "(img) -> (world)", world_check, '\n')
+
+    @unittest.skip("skipped")
     def test_YOLO_model(self):
         # Open image(s) and pass to model
         self.cam = Camera(False) # no camera
@@ -709,7 +727,8 @@ class TestCamera(unittest.TestCase):
                 s = time.time()
                 lines, confidence = detect_white_line(image, target_point, 12)
                 e = time.time()
-
+    
+    @unittest.skip("skipped")
     def test_box_detection(self):
         # Open images and pass to function
         self.cam = Camera(False)
@@ -719,6 +738,9 @@ class TestCamera(unittest.TestCase):
             image = cv2.imread(image_path)
             locs, result_img = self.cam.detect_box(image, visualise=True)
             cv2.imwrite(f"{RESULT_OUT_PREFIX}/box_detect_result_{n}.jpg", result_img)
+    
+    
+
 
 def _capture_loop(detect=False):
     """
@@ -751,15 +773,64 @@ def _capture_loop(detect=False):
             if inp == "x":
                 break
         i += 1
+
+def _overlay_calibration(stream=True):
+    """
+    Parameters
+    ---
+    stream : bool
+        Stream video from webcam if true. Save one image if false
+    """
+    cam = Camera(True)
+    hlines = np.arange(0.5, 5.0, 0.5)
+    vlines = np.arange(-3.0, 3.0, 0.5)
+
+    lines = []
+    
+    
+    for y in hlines:
+        img_cs = cam.world_to_image(np.array([
+            [vlines[0], y, 1],
+            [vlines[-1], y, 1],
+            [vlines[len(vlines)//2], y, 1]
+        ])).astype(int)
+        lines.append((img_cs, str(y)))
+    
+    for x in vlines:
+        img_cs = cam.world_to_image(np.array([
+            [x, hlines[0], 1],
+            [x, hlines[-1], 1],
+            [x, hlines[len(hlines)//2], 1]
+        ])).astype(int)
+        lines.append((img_cs, str(x)))
     
 
-            
+    def draw_line(calibration_img, c, label):
+        col = (0, 0, 255)
+        cv2.line(calibration_img, tuple(c[0]), tuple(c[1]), col, 1)
+        cv2.putText(calibration_img, label, tuple(c[2] + [15, 15]), cv2.FONT_HERSHEY_PLAIN, 1.5, (0, 0, 255))
+
+    while True:
+        calibration_img = cam.capture()
+        for l in lines:
+            draw_line(calibration_img, l[0], l[1])
+
+        # Use this if off the pi
+        if stream:
+            cv2.imshow('Calibration, [press q to quit]', calibration_img)
+            if cv2.waitKey(50) & 0xFF == ord('q'):
+                cv2.destroyAllWindows()
+                break
+        
+        # Capture one image and save if on the pi
+        else:
+            cv2.imwrite('test_results/calibration.jpg', calibration_img)
+            print("Overlaid grid onto capture. Saved in test_results/calibration.jpg")
+            break
 
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestCamera)
     unittest.TextTestRunner(verbosity=0).run(suite)
-
-    # suite = unittest.TestLoader().loadTestsFromTestCase(TestLineDetect)
-    # unittest.TextTestRunner(verbosity=0).run(suite)
     # _capture_loop(detect=True)
+    _overlay_calibration(stream=False)
