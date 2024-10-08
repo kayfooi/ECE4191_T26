@@ -18,7 +18,6 @@ IR__BALLDETECT_IN = 5 # GPIO Number for IR Sensor (S pin)
 
 IR__REVERSEPARK = 6 # This means GPIO6 which is pin 31
 
-
 class DCMotor:
     def __init__(self, pi:int, enc:int, en:int, in1:int, in2:int, for_dir = [0, 1]):
         """
@@ -355,10 +354,10 @@ class DiffDrive:
 
 class TestDiffDrive(unittest.TestCase):
     ACTIVE_TESTS = [
-        # "left_motor",
-        # "right_motor",
+        "left_motor",
+        "right_motor",
         # "rotation",
-        "translation",
+        # "translation",
         # "ball_detection"
     ]
 

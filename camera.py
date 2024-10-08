@@ -16,7 +16,7 @@ print(f"Camera modules import: {e-s:.3f} sec")
 GRADIENT_SIMILARITY_THRESH = 0.03
 INTERCEPT_DIFF_THRESH = 55
 RESULT_OUT_PREFIX = f'test_results/{int(time.time())}' # save results here for debugging
-LINE_CONF_THRESHOLD = 900 # lower if we want more sensitivity
+LINE_CONF_THRESHOLD = 2000 # lower if we want more sensitivity
 IMG_WIDTH = 640
 IMG_HEIGHT = 480
 
@@ -34,8 +34,8 @@ class Camera:
     def __init__(self, open_cam=True):
         # Initialise USB Camera
         if open_cam:
-            # self.cap = cv2.VideoCapture(-1, cv2.CAP_V4L) # for the pi
-            self.cap = cv2.VideoCapture(0) # this may work if you are on a laptop
+            self.cap = cv2.VideoCapture(-1, cv2.CAP_V4L) # for the pi
+            # self.cap = cv2.VideoCapture(0) # this may work if you are on a laptop
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, IMG_WIDTH)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, IMG_HEIGHT)
             self.cap.set(cv2.CAP_PROP_FPS, 30)
@@ -227,6 +227,8 @@ class Camera:
                 result_img = visualize_results(result_img, target, confidence, line_pair)
             if confidence < LINE_CONF_THRESHOLD: # confidence of a line between ball and bot
                 valid_ball_locs.append(target) # only valid if no line is there
+            else:
+                print(f"Ball ignored because line detected. Line confidence = {confidence}")
         
         valid_ball_locs = np.array(valid_ball_locs)
 
@@ -817,8 +819,8 @@ def _overlay_calibration(stream=True):
         Stream video from webcam if true. Save one image if false
     """
     cam = Camera(True)
-    xlines = np.arange(0.5, 5.0, 0.5)
-    ylines = np.arange(-3.0, 3.0, 0.5)
+    xlines = np.arange(0.6, 5.0, 0.6)
+    ylines = np.arange(-3.0, 3.0, 0.6)
 
     lines = []
     
@@ -865,7 +867,7 @@ def _overlay_calibration(stream=True):
 
 
 if __name__ == '__main__':
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestCamera)
-    unittest.TextTestRunner(verbosity=0).run(suite)
-    #_capture_loop(detect=True, stream=True, straight_line=False)
-     #_overlay_calibration(stream=True)
+    # suite = unittest.TestLoader().loadTestsFromTestCase(TestCamera)
+    # unittest.TextTestRunner(verbosity=0).run(suite)
+    _capture_loop(detect=True, stream=False, straight_line=False)
+    # _overlay_calibration(stream=False)

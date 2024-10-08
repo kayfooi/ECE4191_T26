@@ -32,7 +32,7 @@ print(f"Modules loaded in {(et-st) : .3f} sec")
 
 COMPETITION_DURATION = 60*5 # seconds
 DUMP_TIME = 60 # seconds remaining to dump balls
-BALL_CAPACITY = 1
+BALL_CAPACITY = 5
 
 # Initialise world with relevant quadrant number
 W = World(4)
@@ -49,6 +49,7 @@ def plot_state(msg=""):
     For testing and debugging purposes
     """
     global frame_count
+    print(msg)
     # clear figure
     plt.clf()
 
@@ -96,32 +97,35 @@ while W.getElapsedTime() < COMPETITION_DURATION:
     
     if target is not None:
         # Face ball
-        R.rotate(R.calculateRotationDelta(target))
+        # to_face_ball = R.calculateRotationDelta(target)
+        # print(f"Rotating {to_face_ball:.2f}deg to face ball")
+        # R.rotate(to_face_ball)
 
-        plot_state("Rotation")
+        # plot_state("Rotation")
 
         # Double check existence of ball
         # balls = R.detectBalls()
         # for b in balls:
-        #   W.addBall(b)
+        #   W.addBall(b, R.pos)
         
-        target_checked, target_checked_idx = W.getClosestBall(R.pos)
-        rotation = R.calculateRotationDelta(target_checked)
+        # plot_state("Double check")
+        # target_checked, target_checked_idx = W.getClosestBall(R.pos)
+        # rotation = R.calculateRotationDelta(target_checked)
         
         # Facing the ball (within X degrees)
-        if abs(rotation) < 5:
-            # Travel 99% of the distance to the ball
-            R.travelTo(target_checked, 10, 0.3, 0.99)
+        # if abs(rotation) < 2:
+        # Travel 99% of the distance to the ball
+        R.travelTo(target, 10, 0.2, 0.99)
 
-            plot_state("Moved close to ball")
-            # TODO: 3. Collect ball
-            W.collectedTarget()
-            collected_balls += 1
-            plot_state("Collected Ball")
+        plot_state("Moved close to ball")
+        # TODO: 3. Collect ball
+        W.collectedTarget()
+        collected_balls += 1
+        plot_state("Collected Ball")
 
-            # Not testing paddle
-            input("Put the ball in the basket. Press ENTER")
-            # R.collect_ball()
+        # Not testing paddle
+        input("Put the ball in the basket. Press ENTER")
+        # R.collect_ball()
         
         
     else:
@@ -139,6 +143,7 @@ while W.getElapsedTime() < COMPETITION_DURATION:
         if consecutive_rotations * rotation_increment < 360 and W.is_rotation_sensible(rotation_increment, R):
             R.rotate(rotation_increment)
             consecutive_rotations += 1
+
             plot_state("Rotation because no balls found")
         # or move to new vantage point
         else:
@@ -209,6 +214,11 @@ while W.getElapsedTime() < COMPETITION_DURATION:
             plot_state("Reset location")
 
             collected_balls = 0
+    
+    inp = input("Continue? y/n")
+    if inp == 'n':
+        break
+
         
 
         
