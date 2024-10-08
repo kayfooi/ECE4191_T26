@@ -128,20 +128,20 @@ class World:
         ball_distance = np.linalg.norm(ball-pos)
 
         # threshold dependent on distance to ball
-        duplicate_threshold = min(0.05, ball_distance * 0.05)
+        duplicate_threshold = min(0.1, ball_distance * 0.1)
 
         # distance between all detected balls and new ball
         distances = self.getDistancesToBalls(ball)
 
         mindist = np.argmin(distances)
         if distances[mindist] < duplicate_threshold:
-            self.balls[mindist] = ball # replace duplciate ball
+            self.balls[mindist] = ball # update duplciate ball
             return True # duplicate found
         else:
             self.balls.append(ball) # add new ball
             return False # no duplicate found
     
-    def collectedTarget(self):
+    def removedTarget(self):
         """
         Remove tennis ball from state
         """

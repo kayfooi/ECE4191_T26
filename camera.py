@@ -79,6 +79,8 @@ class Camera:
         Capture frame from camera
         """
         if self.cap is not None:
+            # Read one frame to flush the buffer
+            ret, _ = self.cap.read()
             ret, img = self.cap.read()
             if ret:
                 return img
@@ -168,7 +170,8 @@ class Camera:
         classes = ['box', 'tennis-ball']
         # classes = ['tennis-ball']
         font = cv2.FONT_HERSHEY_PLAIN
-        colors = np.random.uniform(0, 255, size=(len(classes), 3))
+        colors = np.random.uniform(180, 255, size=(len(classes), 3))
+        
         if visualise:
             vis_image = image.copy()
 
@@ -187,7 +190,7 @@ class Camera:
                 
                 if visualise:
                     cv2.rectangle(vis_image, (x, y), (x + w, y + h), color, 2)
-                    cv2.putText(vis_image, f"{label} {confidences[i]:.2f}", (x, y + 30), font, 1.25, color, 2)
+                    cv2.putText(vis_image, f"{label} {confidences[i]:.2f}", (x, y-5), font, 1.25, color, 2)
         
         if visualise:
             return results, vis_image
@@ -213,28 +216,30 @@ class Camera:
             # capture from camera
             img = self.capture()
         
-        results = self.apply_YOLO_model(img)
+        results, YOLO_image = self.apply_YOLO_model(img, visualise=visualise)
         ball_locs = np.array(results['tennis-ball'])
 
         # Detect if there is a line befor the ball
         # This may be better to apply to a closest ball or if there is uncertainty a ball lies within our quadrant
         valid_ball_locs = []
         if visualise:
-            result_img = img.copy()
+            line_detect_img = img.copy()
         for target in ball_locs:
             line_pair, confidence = detect_white_line(img, target, 12, visualise=False)
             if visualise:
-                result_img = visualize_results(result_img, target, confidence, line_pair)
+                line_detect_img = visualize_results(line_detect_img, target, confidence, line_pair)
             if confidence < LINE_CONF_THRESHOLD: # confidence of a line between ball and bot
                 valid_ball_locs.append(target) # only valid if no line is there
             else:
                 print(f"Ball ignored because line detected. Line confidence = {confidence}")
         
+        print(f"{len(valid_ball_locs)} balls detected.")
         valid_ball_locs = np.array(valid_ball_locs)
 
         # translate into world coordinates
         if visualise:
-            return self.image_to_world(valid_ball_locs), result_img
+            _overlay_calibration(line_detect_img, stream=False)
+            return self.image_to_world(valid_ball_locs), line_detect_img, YOLO_image
         else:
             return self.image_to_world(valid_ball_locs)
         
@@ -264,7 +269,6 @@ class Camera:
 
     def detect_box(self, img=None, visualise=False):
         """
-        TODO: Detect cardboard box location
         
         Parameters
         ---
@@ -280,12 +284,14 @@ class Camera:
             # capture from camera
             img = self.capture()
         
-        results = self.apply_YOLO_model(img)
-        
+        if visualise:
+            results, result_img = self.apply_YOLO_model(img, True)
+        else:
+            results = self.apply_YOLO_model(img)
+
         box_loc = np.array(results["box"])
 
         if visualise:
-            result_img = img.copy()
             for p in box_loc:
                 cv2.drawMarker(result_img, 
                     tuple(p), 
@@ -811,14 +817,14 @@ def _capture_loop(detect=False, stream=False, straight_line=False):
             i += 1
 
 
-def _overlay_calibration(stream=True):
+def _overlay_calibration(calibration_img = None, stream=False):
     """
     Parameters
     ---
     stream : bool
         Stream video from webcam if true. Save one image if false
     """
-    cam = Camera(True)
+    cam = Camera(calibration_img is None)
     xlines = np.arange(0.6, 5.0, 0.6)
     ylines = np.arange(-3.0, 3.0, 0.6)
 
@@ -831,7 +837,7 @@ def _overlay_calibration(stream=True):
             [x, ylines[-1], 1],
             [x, ylines[len(ylines)//2], 1]
         ])).astype(int)
-        lines.append((img_cs, str(x)))
+        lines.append((img_cs, f'{x:.2f}'))
     
     for y in ylines:
         img_cs = cam.world_to_image(np.array([
@@ -839,7 +845,7 @@ def _overlay_calibration(stream=True):
             [xlines[-1], y, 1],
             [xlines[len(xlines)//2], y, 1]
         ])).astype(int)
-        lines.append((img_cs, str(y)))
+        lines.append((img_cs, f'{y:.2f}'))
     
 
     def draw_line(calibration_img, c, label):
@@ -848,7 +854,10 @@ def _overlay_calibration(stream=True):
         cv2.putText(calibration_img, label, tuple(c[2] + [15, 15]), cv2.FONT_HERSHEY_PLAIN, 1.5, (0, 0, 255))
 
     while True:
-        calibration_img = cam.capture()
+        save = False
+        if calibration_img is None:
+            save = True
+            calibration_img = cam.capture()
         for l in lines:
             draw_line(calibration_img, l[0], l[1])
 
@@ -860,14 +869,18 @@ def _overlay_calibration(stream=True):
                 break
         
         # Capture one image and save if on the pi
-        else:
+        elif save:
             cv2.imwrite('test_results/calibration.jpg', calibration_img)
             print("Overlaid grid onto capture. Saved in test_results/calibration.jpg")
             break
+        
+        else:
+            break
+
 
 
 if __name__ == '__main__':
-    # suite = unittest.TestLoader().loadTestsFromTestCase(TestCamera)
-    # unittest.TextTestRunner(verbosity=0).run(suite)
-    _capture_loop(detect=True, stream=False, straight_line=False)
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestCamera)
+    unittest.TextTestRunner(verbosity=0).run(suite)
+    # _capture_loop(detect=True, stream=False, straight_line=False)
     # _overlay_calibration(stream=False)

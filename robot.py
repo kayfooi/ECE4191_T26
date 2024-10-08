@@ -43,7 +43,7 @@ class Robot:
             self.tip_servo = None 
             self.paddle_servo = None
         
-        self.camera = Camera()
+        self.camera = Camera(open_cam=False)
     
     def is_on_pi(self):
         return on_pi
@@ -62,9 +62,11 @@ class Robot:
         if on_pi:
             rotation_left, rotation_right, stop_code = self.dd.rotate(-angle, speed)
             self.th += (rotation_left + rotation_right) / 2
+            return stop_code
         else:
             noise = 2 # magnitude of randomness (simulation)
             self.th += angle + np.random.random() * noise - noise/2
+            return 0
         
 
     
@@ -94,6 +96,7 @@ class Robot:
                 avg_disp * np.cos(th_rad),
                 avg_disp * np.sin(th_rad)
             ])
+            return stop_code
         else:
             th_rad = np.radians(self.th)
             noise = 0.05
@@ -102,6 +105,7 @@ class Robot:
                 avg_disp * np.cos(th_rad),
                 avg_disp * np.sin(th_rad)
             ])
+            return 0 # normal stop_code
 
     
     def travelTo(self, p, rspeed=20.0, tspeed=0.3, complete=1.0):
@@ -121,8 +125,9 @@ class Robot:
         """
         rotation = self.calculateRotationDelta(p)
         disp = self.calculateDistance(p) * complete
-        self.rotate(rotation)
-        self.translate(disp)
+        r_stop_code = self.rotate(rotation)
+        t_stop_code = self.translate(disp)
+        return r_stop_code, t_stop_code
     
     def collect_ball(self):
         """
@@ -276,10 +281,10 @@ class Robot:
             Array of detected ball locations in 2D world coordinates
         """
 
-        # TODO: when calibrating camera again, ensure world coordinates are relative to bot facing 0 deg
+        # TODO: when calsibrating camera again, ensure world coordinates are relative to bot facing 0 deg
         
         if visualise:
-            relative_pos, res_image = self.camera.detectBalls(img, visualise=True)
+            relative_pos, line_detect_image, YOLO_img = self.camera.detectBalls(img, visualise=True)
         else:
             relative_pos = self.camera.detectBalls(img)
 
@@ -290,7 +295,7 @@ class Robot:
             ball_locs = []
         
         if visualise:
-            return ball_locs, res_image
+            return ball_locs, line_detect_image, YOLO_img
         else:
             return ball_locs
     

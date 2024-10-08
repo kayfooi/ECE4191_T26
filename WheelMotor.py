@@ -144,8 +144,9 @@ class DiffDrive:
             Mechanism that stopped the robot
             0: standard completion
             1: object detected
-            2: timeout
-            3: encoder error
+            2: reverse sensor
+            3: timeout
+            4: encoder error
         """
 
         if enc_l_delta == 0 and enc_r_delta == 0:
@@ -192,7 +193,7 @@ class DiffDrive:
 
             if self.pi.read(IR__REVERSEPARK) == 0: # Should trigger when robot is almost flush against box 
                 print("Reverse IR Triggered. Stopping!")
-                stop_code = 1
+                stop_code = 2
                 break
 
             start_sample_l = self.motor_left.odo
@@ -232,11 +233,11 @@ class DiffDrive:
             sample_count += 1
             if sample_count == max_count:
                 print("Timeout reached. Terminating drive")
-                stop_code = 2
-                break
-            if zero_flag > 50:
-                print("Encoders not counting. Terminating drive")
                 stop_code = 3
+                break
+            if zero_flag > 15:
+                print("Encoders not counting. Terminating drive")
+                stop_code = 4
                 break
 
             # Debugging statements
