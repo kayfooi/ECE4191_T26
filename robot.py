@@ -120,7 +120,6 @@ class Robot:
             Total displacement to complete, ranging from (0.0 to 1.0)
         """
         rotation = self.calculateRotationDelta(p)
-        print(rotation)
         disp = self.calculateDistance(p) * complete
         self.rotate(rotation)
         self.translate(disp)
@@ -173,6 +172,51 @@ class Robot:
         # return paddle servo to home
         self.paddle_servo.set_angle(180)
     
+    def get_perpendicular_to_line(self, distance=2.0, img=None):
+        """
+        When facing a line, rotate such that the robot's heading is perpendicular to the line
+        Use to re-orient the bot
+
+        Returns
+        ---
+        Distance away from line
+        """
+        # Image coord
+        if img is None:
+            img = self.camera.capture()
+        
+        target_point = self.camera.world_to_image(np.array([[distance, 0, 1]]))[0]
+        rotation_needed = 100
+        while rotation_needed < 2:
+            line_pair = self.camera.detect_lines(tuple(target_point.astype(int)), img)
+            if line_pair is not None:
+                offset = 30 # in pixels
+                m = (line_pair[0][0] + line_pair[1][0]) / 2 # average slope
+                c = (line_pair[0][1] + line_pair[1][1]) / 2# average intercept
+                x1, x2 = target_point[0] - offset, target_point[0] + offset
+                y1, y2 = m*x1 + c, m*x2 + c
+                world_coords = self.camera.image_to_world(np.array([
+                    [x1, y1],
+                    [x2, y2]
+                ]))
+
+                # Calculate angle of line in real world (should be a multiple of 90deg)
+                dx = world_coords[0, 0] - world_coords[1, 0]
+                dy = world_coords[0, 1] - world_coords[1, 1]
+                detected_angle = np.degrees(np.arctan2(dy, dx))
+                actual_angle = round(detected_angle/90) * 90 # clip to the nearest 90 degree orientation
+                rotation_needed = detected_angle - actual_angle
+                
+                print(f"Rotating {rotation_needed:.2f} deg to face line")
+                self.rotate(rotation_needed)
+            else:
+                return None
+        
+
+
+
+
+    
     # -------- HELPER FUNCTIONS -----------
     
     def _getRotationMatrix(self):
@@ -196,9 +240,7 @@ class Robot:
         Rotation needed by bot in order to face p in degrees
         """
         delta = p - self.pos
-        print(delta)
         r = (np.degrees(np.arctan2(delta[1], delta[0])) - self.th)
-        print(r)
         if r < -180:
             return r + 360
         if r > 180:
@@ -273,9 +315,9 @@ class Robot:
             box_loc = None
         
         if visualise:
-            return ball_loc, res_image
+            return box_loc, res_image
         else:
-            return ball_loc
+            return box_loc
 
     # -------- VISUALISING FUNCTIONS --------
     def plot_bot(self, ax):
@@ -315,6 +357,7 @@ class TestBot(unittest.TestCase):
         # "collect_and_dump"
         # "detect_travel_collect_dump"
         # "detect_and_travel_to"
+        "get_perpendicular_to_ball"
     ]
     
     def setUp(self):
@@ -333,6 +376,12 @@ class TestBot(unittest.TestCase):
         self.assertLess(abs(self.bot.calculateDistance(init_pos)-distance), 0.1)
         self.assertLess(abs(abs(self.bot.calculateRotationDelta(init_pos))-180), 0.1)
         print(self.bot)
+    
+    @unittest.skipIf("get_perpendicular_to_ball" not in ACTIVE_TESTS, "left_motor test skipped")
+    def test_get_perpendicular_to_ball(self):
+        img = cv2.imread('CV/test_imgs/test_images/testing0192.jpg')
+        img = cv2.resize(img, (640, 480))
+        self.bot.get_perpendicular_to_line(distance = 6.0, img=img)
     
     @unittest.skipIf("travel_to" not in ACTIVE_TESTS, "left_motor test skipped")
     def test_travel_to(self):

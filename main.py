@@ -25,13 +25,14 @@ from matplotlib import pyplot as plt
 import sys
 import cv2
 from datetime import datetime
+import numpy as np
 
 et = time.time()
 print(f"Modules loaded in {(et-st) : .3f} sec")
 
 COMPETITION_DURATION = 60*5 # seconds
 DUMP_TIME = 60 # seconds remaining to dump balls
-BALL_CAPACITY = 4
+BALL_CAPACITY = 1
 
 # Initialise world with relevant quadrant number
 W = World(4)
@@ -55,6 +56,7 @@ def plot_state(msg=""):
     W.plot_court_lines(plt)
     W.plot_vps(plt)
     W.plot_balls(plt)
+    W.plot_box_park(plt)
     R.plot_bot(plt)
 
     # Annotate
@@ -66,8 +68,8 @@ def plot_state(msg=""):
     
     frame_count += 1
 
-sim_frame = None if R.is_on_pi() else cv2.imread('CV/test_imgs/test_images/testing0000.jpg')
-
+sim_frame = None if R.is_on_pi() else cv2.resize(cv2.imread('CV/test_imgs/test_images/testing0000.jpg'), (640, 480))
+line_frame = None if R.is_on_pi() else cv2.resize(cv2.imread('CV/test_imgs/test_images/testing0192.jpg'), (640, 480))
 # Exploration parameters
 consecutive_rotations = 0
 rotation_increment = 40
@@ -113,10 +115,13 @@ while W.getElapsedTime() < COMPETITION_DURATION:
 
             plot_state("Moved close to ball")
             # TODO: 3. Collect ball
-            W.collectTarget()
+            W.collectedTarget()
             collected_balls += 1
             plot_state("Collected Ball")
-            R.collect_ball()
+
+            # Not testing paddle
+            input("Put the ball in the basket. Press ENTER")
+            # R.collect_ball()
         
         
     else:
@@ -147,75 +152,63 @@ while W.getElapsedTime() < COMPETITION_DURATION:
     # Navigate to box
     if collected_balls == BALL_CAPACITY or (COMPETITION_DURATION - W.getElapsedTime()) < DUMP_TIME:
         # 5. Navigate to and reverse up to the box
-        
-        # Travel to center of quadrant
+
+        # Travel to center of quadrant for best view
         R.travelTo(W.vantage_points[0])
 
         # Face the theoretical position of the box (0, 0)
         R.rotate(R.calculateRotationDelta(W.origin))
 
-        target = R.detect_box()
+        target = W.box_corner # for simulation # R.detect_box()
+
+        plot_state("Translated to center and faced box")
 
         if target is not None:
 
             # Face box
             R.rotate(R.calculateRotationDelta(target))
 
-            plot_state("Rotation")
+            # Travel to closer to box if far away
+            distance_to_box = R.calculateDistance(target)
+            if R.calculateDistance(target) > 1.0:
+                R.travelTo(target, complete=0.6)
 
-            # Double check existence of ball
-            # balls = R.detectBalls()
-            # for b in balls:
-            #   W.addBall(b)
+            # orient bot with line
+            distance_to_line = None
+            consecutive_rotations = 0
+
+            # face the y = 0 line
+            to_face_line = R.calculateRotationDelta(np.array([0, R.pos[1]]))
+            R.rotate(to_face_line) # rotate to face a line
+            plot_state("Rotation facing line")
+            distance_to_line = 1.25 # R.get_perpendicular_to_line(distance=abs(R.pos[1])+1)
             
-            target_checked, target_checked_idx = W.getClosestBall(R.pos)
-            rotation = R.calculateRotationDelta(target_checked)
-            
-            # Facing the ball (within X degrees)
-            if abs(rotation) < 5:
-                # Travel 99% of the distance to the ball
-                R.travelTo(target_checked, 10, 0.3, 0.99)
-
-                R.rotate(180)
-
-                plot_state("Moved close to box")
-
-                # TODO new drive function that makes the bot go straight until the infared sensor goes off 
+            # No line found. Intervention needed
+            if distance_to_line is None:
+                print("I am lost. Put me in-front to the box and I'll dump the balls.")
+                input("Press ENTER when done.")
+                # R.dump_balls()
                 
-                
-                W.collectTarget()
-                R.dump_balls()
-
-                plot_state("Deposited Balls")
-                # TODO drive away from box ( if we have time itd be cool )
-        
-        else:
-            # Decide which direction to rotate on the spot
-            if consecutive_rotations == 0:
-                if W.is_rotation_sensible(rotation_increment, R):
-                    rotation_direction = 1
-                elif W.is_rotation_sensible(-rotation_increment, R):
-                    rotation_direction = -1
-                else:    
-                    vp_idx = (vp_idx + 1) % len(W.vantage_points)
-                    R.travelTo(W.vantage_points[vp_idx])
-
-            # Rotate on the spot
-            if consecutive_rotations * rotation_increment < 360 and W.is_rotation_sensible(rotation_increment, R):
-                R.rotate(rotation_increment)
-                consecutive_rotations += 1
-                plot_state("Rotation because no balls found")
-            # or move to new vantage point
             else:
-                vp_idx = (vp_idx + 1) % len(W.vantage_points)
-                R.travelTo(W.vantage_points[vp_idx])
-                plot_state("Translation because no balls found")
+                # stop early
+                R.translate(distance_to_line-0.15, speed=0.2)
+                to_face_box = round(R.calculateRotationDelta(W.origin)/90) * 90
+                R.rotate(-to_face_box) # face away from box
 
-        # boxPosition = determineBoxPosition(box)
-        # R.travelTo(boxPosition)
-        # R.rotate(180)
+                # Reverse to box (make this a function in robot or WheelMotor)
+                R.translate(-(distance_to_box**2 - distance_to_line**2)**0.5)
 
-        # 6. TODO: Dump balls and re-calibrate location/rotation
+                # if successful
+                # R.dump_balls()
+            
+            # reset location
+            R.pos = W.box_park.copy()
+            # reset orientation
+            R.th = 90 if R.pos[1] > 0 else -90
+
+            plot_state("Reset location")
+
+            collected_balls = 0
         
 
         

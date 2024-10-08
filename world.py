@@ -13,6 +13,8 @@ BASELINE = 5.48 # y distance from baseline to center line
 SP_OS = 0.2 # Start Point Offset: Start the robot at this offset from corner in both x and y directions
 BOX_LENGTH = 0.6
 BOX_WIDTH = 0.45
+BOT_LENGTH = 0.4 # from camera to back
+BOT_WIDTH = 0.4 # wheel to wheel
 
 QUADRANTS = [
     {
@@ -21,7 +23,8 @@ QUADRANTS = [
         "yrange": [0.00, NETLINE],
         "init_pos": [QUAD_WIDTH - SP_OS, NETLINE - SP_OS],
         "init_heading": -90,
-        "box_corner": [BOX_LENGTH/2, BOX_WIDTH/2]
+        "box_corner": [BOX_LENGTH/2, BOX_WIDTH/2],
+        "box_park": [BOX_LENGTH/2 - BOT_WIDTH/2, BOX_WIDTH/2 + BOT_LENGTH]
     },
     {
         "name": "Quadrant 2",
@@ -29,7 +32,8 @@ QUADRANTS = [
         "yrange": [0.00, NETLINE],
         "init_pos": [-QUAD_WIDTH + SP_OS, NETLINE - SP_OS],
         "init_heading": -90,
-        "box_corner": [-BOX_LENGTH/2, BOX_WIDTH/2]
+        "box_corner": [-BOX_LENGTH/2, BOX_WIDTH/2],
+        "box_park": [-BOX_LENGTH/2 + BOT_WIDTH/2, BOX_WIDTH/2 + BOT_LENGTH]
     },
     {
         "name": "Quadrant 3",
@@ -37,7 +41,8 @@ QUADRANTS = [
         "yrange": [-BASELINE, 0.00],
         "init_pos": [-QUAD_WIDTH+SP_OS, -BASELINE+SP_OS],
         "init_heading": 90,
-        "box_corner": [-BOX_LENGTH/2, -BOX_WIDTH/2]
+        "box_corner": [-BOX_LENGTH/2, -BOX_WIDTH/2],
+        "box_park": [-BOX_LENGTH/2 + BOT_WIDTH/2, -BOX_WIDTH/2 - BOT_LENGTH]
     },
     {
         "name": "Quadrant 4",
@@ -45,7 +50,8 @@ QUADRANTS = [
         "yrange": [-BASELINE, 0.00],
         "init_pos": [QUAD_WIDTH-SP_OS, -BASELINE+SP_OS],
         "init_heading": 90,
-        "box_corner": [BOX_LENGTH/2, -BOX_WIDTH/2]
+        "box_corner": [BOX_LENGTH/2, -BOX_WIDTH/2],
+        "box_park": [BOX_LENGTH/2 - BOT_WIDTH/2, -BOX_WIDTH/2 - BOT_LENGTH]
     }
 ]
 
@@ -58,6 +64,7 @@ class World:
         self.target_ball_idx = None
         self.quadrant = QUADRANTS[quadrant-1]
         self.box_corner = np.array(self.quadrant["box_corner"])
+        self.box_park = np.array(self.quadrant["box_park"])
         self.init_time = time.time()
 
         # Generating vantage Points
@@ -179,6 +186,13 @@ class World:
         col = 'sandybrown'
         ax.plot([0, self.box_corner[0]], [self.box_corner[1]]*2, c=col)
         ax.plot([self.box_corner[0]]*2, [0, self.box_corner[1]], c=col)
+    
+    def plot_box_park(self, ax):
+        """
+        Plots box onto ax
+        """
+        col = 'r'
+        ax.plot(self.box_park[0], self.box_park[1], 'ro', label='box park')
     
     def plot_vps(self, ax, c='lightgrey'):
         """

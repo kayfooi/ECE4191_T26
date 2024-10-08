@@ -292,12 +292,14 @@ class Camera:
 
         return self.image_to_world(box_loc)
     
-    def detect_lines(self, img=None):
+    def detect_lines(self, point=(IMG_WIDTH//2, IMG_HEIGHT//2), img=None):
         """
         TODO: Detect tennis court lines
 
         Parameters
         ---
+        point: tuple
+            Img point to detect lines before
         img: *optional ArrayLike
             Test image
         
@@ -310,6 +312,10 @@ class Camera:
             # capture from camera
             img = self.capture()
         
+        # detect_white_line(point)
+        line_pair, confidence = detect_white_line(img, point, 12, visualise=False)
+        if confidence > LINE_CONF_THRESHOLD:
+            return line_pair
         return None
 
 
@@ -666,7 +672,7 @@ class TestCamera(unittest.TestCase):
         t = time.time() - self.startTime
         print('%s: %.3f' % (self.id(), t))
 
-    # @unittest.skip("skipped")
+    @unittest.skip("skipped")
     def test_image_to_world(self):
         self.cam = Camera(False) # no camera
         img_c = np.array([[IMG_WIDTH//2, IMG_HEIGHT//2]])
@@ -717,10 +723,10 @@ class TestCamera(unittest.TestCase):
             locs, result_img = self.cam.detectBalls(image, visualise=True)
             cv2.imwrite(f"{RESULT_OUT_PREFIX}/ball_detect_result_{n}.jpg", result_img)
     
-    @unittest.skip("skipped")
+    # @unittest.skip("skipped")
     def test_line_detection(self):
         # pass images to line detection
-        for n in range(0,60,20):
+        for n in range(192, 193):
             image_path = f'CV/test_imgs/test_images/testing{n:04g}.jpg'
             # image_path = f'./test_imgs/blender/oneball/normal{n:04g}.jpg'
             image = cv2.imread(image_path)
@@ -859,7 +865,7 @@ def _overlay_calibration(stream=True):
 
 
 if __name__ == '__main__':
-    # suite = unittest.TestLoader().loadTestsFromTestCase(TestCamera)
-    # unittest.TextTestRunner(verbosity=0).run(suite)
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestCamera)
+    unittest.TextTestRunner(verbosity=0).run(suite)
     #_capture_loop(detect=True, stream=True, straight_line=False)
-    _overlay_calibration(stream=True)
+     #_overlay_calibration(stream=True)
