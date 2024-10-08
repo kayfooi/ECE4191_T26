@@ -60,7 +60,7 @@ class Robot:
         """
         # Send rotation instruction
         if on_pi:
-            rotation_left, rotation_right, stop_code = self.dd.rotate(angle, speed)
+            rotation_left, rotation_right, stop_code = self.dd.rotate(-angle, speed)
             self.th += (rotation_left + rotation_right) / 2
         else:
             noise = 2 # magnitude of randomness (simulation)
@@ -120,6 +120,7 @@ class Robot:
             Total displacement to complete, ranging from (0.0 to 1.0)
         """
         rotation = self.calculateRotationDelta(p)
+        print(rotation)
         disp = self.calculateDistance(p) * complete
         self.rotate(rotation)
         self.translate(disp)
@@ -133,9 +134,9 @@ class Robot:
         collect_speed = 30 # degrees per second (can't be too quick or servo will stall)
         
         # make sure it is at home
-        self.paddle_servo.set_angle(rest_angle, collect_speed)
+        self.paddle_servo.set_angle(rest_angle)
 
-        self.paddle_servo.set_angle(collect_angle, collect_speed)
+        self.paddle_servo.set_angle(collect_angle)
         time.sleep(1) # allow the ball to roll off
         self.paddle_servo.set_angle(rest_angle, 50)
         time.sleep(1)
@@ -155,7 +156,9 @@ class Robot:
         # set paddle servo out of the way
         self.paddle_servo.set_angle(135)
 
-        self.tip_servo.set_angle(dump_angle, dump_speed)
+        # no speed limit - smoother dump
+        self.tip_servo.set_angle(dump_angle)
+
         time.sleep(3) # allow balls to exit
         # TODO: may have to add shaking mechanism if balls don't exit reliably
 
@@ -193,7 +196,9 @@ class Robot:
         Rotation needed by bot in order to face p in degrees
         """
         delta = p - self.pos
+        print(delta)
         r = (np.degrees(np.arctan2(delta[1], delta[0])) - self.th)
+        print(r)
         if r < -180:
             return r + 360
         if r > 180:
@@ -214,7 +219,7 @@ class Robot:
         delta = p - self.pos
         return np.sqrt(np.sum(delta ** 2))
     
-    def detectBalls(self, img=None):
+    def detectBalls(self, img=None, visualise=False):
         """
         Detects ball locations
 
@@ -230,9 +235,47 @@ class Robot:
         """
 
         # TODO: when calibrating camera again, ensure world coordinates are relative to bot facing 0 deg
-        relative_pos = self.camera.detectBalls(img)
-        ball_locs = relative_pos @ self._getRotationMatrix().T + self.pos
-        return ball_locs
+        
+        if visualise:
+            relative_pos, res_image = self.camera.detectBalls(img, visualise=True)
+        else:
+            relative_pos = self.camera.detectBalls(img)
+
+        if len(relative_pos) > 0:
+            ball_locs = relative_pos @ self._getRotationMatrix().T + self.pos
+            
+        else:
+            ball_locs = []
+        
+        if visualise:
+            return ball_locs, res_image
+        else:
+            return ball_locs
+    
+    def detect_box(self, img=None, visualise=False):
+        if visualise:
+            relative_pos, res_image = self.camera.detect_box(img, visualise=True)
+        else:
+            relative_pos = self.camera.detect_box(img)
+
+        if len(relative_pos) > 0:
+            box_locs = relative_pos @ self._getRotationMatrix().T + self.pos
+            # Find closest box to (0, 0) (where it should be)
+            distances_from_origin = np.linalg.norm(box_locs, axis=1)
+            correct_loc_box_idx = np.argmin(distances_from_origin)
+
+            # Within 1.5 m of origin
+            if distances_from_origin[correct_loc_box_idx] < 1.5:
+                box_loc = box_locs[correct_loc_box_idx]
+            else:
+                box_loc = None
+        else:
+            box_loc = None
+        
+        if visualise:
+            return ball_loc, res_image
+        else:
+            return ball_loc
 
     # -------- VISUALISING FUNCTIONS --------
     def plot_bot(self, ax):
@@ -266,11 +309,14 @@ class TestBot(unittest.TestCase):
         # "right_motor",
         # "rotation",
         # "translation",
-        "ball_detection_cam"
+        # "ball_detection_cam"
         # "collect_ball"
         # "dump_balls"
         # "collect_and_dump"
+        # "detect_travel_collect_dump"
+        # "detect_and_travel_to"
     ]
+    
     def setUp(self):
         self.bot = Robot()
 
@@ -294,6 +340,20 @@ class TestBot(unittest.TestCase):
         self.bot.travelTo(target)
         np.testing.assert_allclose(self.bot.pos, target, atol=1e-1)
 
+    @unittest.skipIf("detect_and_travel_to" not in ACTIVE_TESTS, "left_motor test skipped")
+    def test_detect_and_travel_to(self):
+        balls, result_image = self.bot.detectBalls(visualise=True)
+        if result_image is not None:
+            cv2.imwrite("test_results/detection_image.jpg", result_image)
+            if len(balls) > 0:
+                target = balls[0]
+                print(target)
+                self.bot.travelTo(target)
+                np.testing.assert_allclose(self.bot.pos, target, atol=1e-1)
+            else:
+                print("No balls found")
+
+    
     @unittest.skipIf("rotation_delta" not in ACTIVE_TESTS, "left_motor test skipped")
     def test_rotation_delta(self):
         a = np.vstack(np.radians(np.arange(0, 361, 45)))
@@ -340,7 +400,6 @@ class TestBot(unittest.TestCase):
             dist = tof.read() # distance in mm
             print( i + ": " + str(dist) + "mm")
             time.sleep(0.1)   
-    
 
     @unittest.skipIf("dump_balls" not in ACTIVE_TESTS, "left_motor test skipped")
     def test_dump_balls(self):
@@ -360,5 +419,19 @@ class TestBot(unittest.TestCase):
         self.bot.collect_ball()
         self.bot.dump_balls()
 
+    @unittest.skipIf("detect_travel_collect_dump" not in ACTIVE_TESTS, "left_motor test skipped")
+    def test_detect_travel_collect_dump(self):
+        """
+        Test everything! (except box)
+        """
+        res = self.bot.detectBalls()
+        if len(res) > 0:
+            self.bot.travelTo(res[0])
+            self.bot.collect_ball()
+            self.bot.dump_balls()
+        else:
+            print("No balls found")
+
 if __name__ == '__main__':
     unittest.main()
+    

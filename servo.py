@@ -68,7 +68,7 @@ class TestServo(unittest.TestCase):
     def setUp(self):
         SERVO_GPIO = 14
         pi = pigpio.pi()
-        self.servo = Servo(pi, SERVO_GPIO)
+        self.servo = Servo(pi, SERVO_GPIO, 180)
 
     @unittest.skip("working")
     def test_servo_angle(self):
@@ -129,10 +129,10 @@ class TestServo(unittest.TestCase):
         """
         # Paddle Mechanism
         self.servo.set_angle(180, 50)
-        sleep(3)
-        self.servo.set_angle(12, 30)
-
-        # Dumping Mechanism
+        sleep(1)
+        self.servo.set_angle(0, 30)
+        self.servo.stop()
+        # Dumping Mechanisms
         # self.servo.set_angle(85, 15)
         # sleep(1)
         # self.servo.set_angle(177, 15)

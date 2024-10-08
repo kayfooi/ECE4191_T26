@@ -34,8 +34,8 @@ class Camera:
     def __init__(self, open_cam=True):
         # Initialise USB Camera
         if open_cam:
-            self.cap = cv2.VideoCapture(-1, cv2.CAP_V4L) # for the pi
-            # self.cap = cv2.VideoCapture(0) # this may work if you are on a laptop
+            # self.cap = cv2.VideoCapture(-1, cv2.CAP_V4L) # for the pi
+            self.cap = cv2.VideoCapture(0) # this may work if you are on a laptop
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, IMG_WIDTH)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, IMG_HEIGHT)
             self.cap.set(cv2.CAP_PROP_FPS, 30)
@@ -277,8 +277,9 @@ class Camera:
         if img is None:
             # capture from camera
             img = self.capture()
-
+        
         results = self.apply_YOLO_model(img)
+        
         box_loc = np.array(results["box"])
 
         if visualise:
@@ -860,5 +861,5 @@ def _overlay_calibration(stream=True):
 if __name__ == '__main__':
     # suite = unittest.TestLoader().loadTestsFromTestCase(TestCamera)
     # unittest.TextTestRunner(verbosity=0).run(suite)
-    _capture_loop(detect=True, stream=True, straight_line=False)
-    # _overlay_calibration(stream=True)
+    #_capture_loop(detect=True, stream=True, straight_line=False)
+    _overlay_calibration(stream=True)

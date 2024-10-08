@@ -73,6 +73,7 @@ class World:
             [1, -1],
             [-1, -1]
         ]) * os
+        self.origin = np.array([0, 0])
 
     def getInitPos(self):
         return np.array(self.quadrant["init_pos"])

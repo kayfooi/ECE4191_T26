@@ -76,6 +76,7 @@ collected_balls = 0
 
 plot_state("Initial state")
 
+
 while W.getElapsedTime() < COMPETITION_DURATION: 
     # 1. Identify and locate tennis balls
     balls = R.detectBalls(sim_frame)
@@ -145,15 +146,19 @@ while W.getElapsedTime() < COMPETITION_DURATION:
     
     # Navigate to box
     if collected_balls == BALL_CAPACITY or (COMPETITION_DURATION - W.getElapsedTime()) < DUMP_TIME:
-        # 5. TODO: Navigate to and reverse up to the box
+        # 5. Navigate to and reverse up to the box
+        
+        # Travel to center of quadrant
+        R.travelTo(W.vantage_points[0])
 
-        target, target_idx = W.getClosestBall(R.pos)
-        W.target_ball_idx = target_idx
+        # Face the theoretical position of the box (0, 0)
+        R.rotate(R.calculateRotationDelta(W.origin))
 
-        plot_state("First detection")
-    
+        target = R.detect_box()
+
         if target is not None:
-            # Face ball
+
+            # Face box
             R.rotate(R.calculateRotationDelta(target))
 
             plot_state("Rotation")
