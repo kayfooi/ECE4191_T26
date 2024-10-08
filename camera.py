@@ -17,6 +17,8 @@ GRADIENT_SIMILARITY_THRESH = 0.03
 INTERCEPT_DIFF_THRESH = 55
 RESULT_OUT_PREFIX = f'test_results/{int(time.time())}' # save results here for debugging
 LINE_CONF_THRESHOLD = 900 # lower if we want more sensitivity
+IMG_WIDTH = 640
+IMG_HEIGHT = 480
 
 os.mkdir(RESULT_OUT_PREFIX) 
 # Main camera interface
@@ -32,10 +34,10 @@ class Camera:
     def __init__(self, open_cam=True):
         # Initialise USB Camera
         if open_cam:
-            # self.cap = cv2.VideoCapture(-1, cv2.CAP_V4L) # for the pi
-            self.cap = cv2.VideoCapture(0) # this may work if you are on a laptop
-            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            self.cap = cv2.VideoCapture(-1, cv2.CAP_V4L) # for the pi
+            # self.cap = cv2.VideoCapture(0) # this may work if you are on a laptop
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, IMG_WIDTH)
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, IMG_HEIGHT)
             self.cap.set(cv2.CAP_PROP_FPS, 30)
 
             # Default buffer size is 4, changes to brightness might not be observed until 4 frames are read
@@ -43,7 +45,7 @@ class Camera:
 
             # NOTE: I don't think our camera has exposure settings
             # set the brightness instead (in range -255 to +255)
-            self.cap.set(cv2.CAP_PROP_BRIGHTNESS, -50)
+            # self.cap.set(cv2.CAP_PROP_BRIGHTNESS, -50)
             time.sleep(0.1)
         else:
             self.cap = None
@@ -56,10 +58,16 @@ class Camera:
         self.model.load_model("./CV/YOLO_ball_box_detection_ncnn_model/model.ncnn.bin")
 
         # Homography that transforms image coordinates to world coordinates
+        # self._H = np.array([
+        #     [-0.014210389999953848, -0.0006487560233598932, 9.446387805048925],
+        #     [-0.002584902022933329, 0.003388864890354594, -17.385493275570447],
+        #     [-0.0029850356852013345, -0.04116105685090471, 1.0],
+        # ])
+        # For HP Webcam (8th October)
         self._H = np.array([
-            [-0.014210389999953848, -0.0006487560233598932, 9.446387805048925],
-            [-0.002584902022933329, 0.003388864890354594, -17.385493275570447],
-            [-0.0029850356852013345, -0.04116105685090471, 1.0],
+            [ 2.51805091e-04, -1.83088698e-02,  2.37992253e+01],
+            [-4.44788004e-02,  6.59539865e-04,  1.40098008e+01],
+            [-1.40510443e-03,  1.14570475e-01,  1.00000000e+00]
         ])
     
     def __del__(self):
@@ -657,14 +665,14 @@ class TestCamera(unittest.TestCase):
         t = time.time() - self.startTime
         print('%s: %.3f' % (self.id(), t))
 
-    @unittest.skip("skipped")
+    # @unittest.skip("skipped")
     def test_image_to_world(self):
         self.cam = Camera(False) # no camera
-        img_c = np.array([[100, 100]])
+        img_c = np.array([[IMG_WIDTH//2, IMG_HEIGHT//2]])
         coord = self.cam.image_to_world(img_c)
         print(coord)
     
-    # @unittest.skip("skipped")
+    @unittest.skip("skipped")
     def test_world_to_image(self): 
         self.cam = Camera(False)   
         for x in np.arange(-2, 2, 0.5):
@@ -673,8 +681,8 @@ class TestCamera(unittest.TestCase):
                 img_c = self.cam.world_to_image(world_c)
                 world_check = self.cam.image_to_world(img_c)
                 np.testing.assert_allclose(world_c[:, :2], world_check, atol=0.01)
-                # print(world_c, "(world) -> (img)", img_c)
-                # print(img_c, "(img) -> (world)", world_check, '\n')
+                print(world_c, "(world) -> (img)", img_c)
+                print(img_c, "(img) -> (world)", world_check, '\n')
 
     @unittest.skip("skipped")
     def test_YOLO_model(self):
@@ -742,7 +750,7 @@ class TestCamera(unittest.TestCase):
     
 
 
-def _capture_loop(detect=False):
+def _capture_loop(detect=False, stream=False, straight_line=False):
     """
     Continuously captures images and saves to test_results folder
 
@@ -757,22 +765,42 @@ def _capture_loop(detect=False):
     while True:
         s = time.time()
         img = cam.capture()
+
         if img is not None:
-            out_file = f"./test_results/result{i}.jpg"
+            
             if detect:
-                cam.apply_YOLO_model(img, True, out_file)
+                results, result_img = cam.apply_YOLO_model(img, visualise=True)
             else:
-                cv2.imwrite(out_file, img)
+                result_img = img.copy()
+
+            # Stright vertical line and horizontal line
+            if straight_line:
+                cv2.line(result_img, (IMG_WIDTH//2, 0), (IMG_WIDTH//2, IMG_HEIGHT), (0, 0, 255), 1)
+                cv2.line(result_img, (0, IMG_HEIGHT//2), (IMG_WIDTH, IMG_HEIGHT//2), (0, 0, 255), 1)
+        else:
+            print("Capture failed.")
+            break
+
         e = time.time()
-        print(f"Frame {i}: {(e-s)*1e3:.2f} msec")
-        inp = input("x to escape, any other key to capture: ")
-        try:
-            adj = int(inp)
-            cam.cap.set(cv2.CAP_PROP_BRIGHTNESS, adj)
-        except ValueError:
-            if inp == "x":
-                break
-        i += 1
+
+        out_file = f"./test_results/result{i}.jpg"
+        # Use this if off the pi
+        if stream:
+            cv2.imshow('Calibration, [press q to quit, s to save]', result_img)
+            k = cv2.waitKey(50) 
+        else:
+            cv2.imwrite(out_file, result_img)
+            print(f"Captured in {e-s} sec. Saved in {out_file}.")
+            k = input("ENTER to continue, q to quit: ")
+        
+        if k == ord('q') or k == 'q':
+            cv2.destroyAllWindows()
+            break
+        elif k == ord('s'):
+            cv2.imwrite(out_file, result_img)
+            print(f"Captured in {e-s} sec. Saved in {out_file}")
+            i += 1
+
 
 def _overlay_calibration(stream=True):
     """
@@ -782,27 +810,27 @@ def _overlay_calibration(stream=True):
         Stream video from webcam if true. Save one image if false
     """
     cam = Camera(True)
-    hlines = np.arange(0.5, 5.0, 0.5)
-    vlines = np.arange(-3.0, 3.0, 0.5)
+    xlines = np.arange(0.5, 5.0, 0.5)
+    ylines = np.arange(-3.0, 3.0, 0.5)
 
     lines = []
     
     
-    for y in hlines:
+    for x in xlines:
         img_cs = cam.world_to_image(np.array([
-            [vlines[0], y, 1],
-            [vlines[-1], y, 1],
-            [vlines[len(vlines)//2], y, 1]
-        ])).astype(int)
-        lines.append((img_cs, str(y)))
-    
-    for x in vlines:
-        img_cs = cam.world_to_image(np.array([
-            [x, hlines[0], 1],
-            [x, hlines[-1], 1],
-            [x, hlines[len(hlines)//2], 1]
+            [x, ylines[0], 1],
+            [x, ylines[-1], 1],
+            [x, ylines[len(ylines)//2], 1]
         ])).astype(int)
         lines.append((img_cs, str(x)))
+    
+    for y in ylines:
+        img_cs = cam.world_to_image(np.array([
+            [xlines[0], y, 1],
+            [xlines[-1], y, 1],
+            [xlines[len(xlines)//2], y, 1]
+        ])).astype(int)
+        lines.append((img_cs, str(y)))
     
 
     def draw_line(calibration_img, c, label):
@@ -830,7 +858,7 @@ def _overlay_calibration(stream=True):
 
 
 if __name__ == '__main__':
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestCamera)
-    unittest.TextTestRunner(verbosity=0).run(suite)
-    # _capture_loop(detect=True)
-    _overlay_calibration(stream=False)
+    # suite = unittest.TestLoader().loadTestsFromTestCase(TestCamera)
+    # unittest.TextTestRunner(verbosity=0).run(suite)
+    _capture_loop(detect=True, stream=True, straight_line=False)
+    # _overlay_calibration(stream=True)

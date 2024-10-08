@@ -73,9 +73,9 @@ best_alpha = 0.00
 
 errors = []
 for alpha in alphas:
-    corrected = correct_barrel_distortion(src_points, alpha, False)
+    # corrected = correct_barrel_distortion(src_points, alpha, False)
     # Calculate the homography matrix using RANSAC
-    H, mask = cv2.findHomography(corrected, true_coords, cv2.RANSAC, 5.0)
+    H, mask = cv2.findHomography(srcPoints=, true_coords, cv2.RANSAC, 5.0)
     calculated_world_coords = image_to_world(corrected, H)
     error = calculate_error(calculated_world_coords, true_coords)
     errors.append(error)

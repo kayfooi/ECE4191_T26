@@ -17,7 +17,8 @@ DEFAULT_CAM_HEADING = 0.0
 class ImageLabeler:
     def __init__(self):
         self.folder_path = input("Folder path/name: ")
-        self.image_files = [f for f in os.listdir(self.folder_path) if f.lower().endswith('.jpg')]
+        # self.image_files = [f for f in os.listdir(self.folder_path) if f.lower().endswith('.jpg')]
+        self.image_files = ['calibration_img.jpg']
         self.current_image_index = 0
         self.points = []
         self.results = []
@@ -39,6 +40,7 @@ class ImageLabeler:
 
     def add_point(self, event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
+            print(f"{x}, {y}")
             self.points.append((x, y))
             self.refresh_display()
 

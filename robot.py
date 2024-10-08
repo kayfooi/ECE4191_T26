@@ -176,7 +176,7 @@ class Robot:
         """
         Get 2D rotation matrix from bot orientation
         """
-        th_rad = np.radians(self.th - 90)
+        th_rad = np.radians(self.th)
         return np.array([
             [np.cos(th_rad), -np.sin(th_rad)],
             [np.sin(th_rad), np.cos(th_rad)]
