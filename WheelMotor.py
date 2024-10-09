@@ -206,8 +206,8 @@ class DiffDrive:
             
             enc_l_speed = abs(self.motor_left.odo - start_sample_l)
             enc_r_speed = abs(self.motor_right.odo - start_sample_r)
-
-            if enc_l_speed == 0 and enc_r_speed == 0:
+            # print("left", enc_l_speed,"right", enc_r_speed)
+            if enc_l_speed == 0 or enc_r_speed == 0:
                 # encoders may be hung
                 # TODO: reset the encoder pins
                 zero_flag += 1
@@ -220,7 +220,7 @@ class DiffDrive:
             # Apply PID adjustment to control speed (duty cycle)
             dutyL += (eL * kp) + (eL_prev_error * kd) + (eL_total * ki)
             dutyR += (eR * kp) + (eR_prev_error * kd) + (eR_total * ki)
-
+            # print("Left duty", dutyL, "Right duty", dutyR)
             dutyL = max(min(dutyL, 1.0), 0.0)
             dutyR = max(min(dutyR, 1.0), 0.0)
 
@@ -235,7 +235,7 @@ class DiffDrive:
                 print("Timeout reached. Terminating drive")
                 stop_code = 3
                 break
-            if zero_flag > 15:
+            if zero_flag > 30:
                 print("Encoders not counting. Terminating drive")
                 stop_code = 4
                 break
@@ -251,7 +251,7 @@ class DiffDrive:
         self.motor_left.set_direction(1 if enc_l_delta < 0 else -1)
         self.motor_right.set_direction(1 if enc_r_delta < 0 else -1)
         stop_time = 0.5 # max stopping time
-        stop_count = stop_time / sample_count
+        stop_count = 0
         sample_count = 0
         while enc_l_speed > 0 and enc_r_speed > 0:
             if sample_count >= stop_count:
@@ -342,7 +342,7 @@ class DiffDrive:
 
         offset = speed * 1 if angle > 30 else 10
         if angle > 0:
-            ang_enc = angle * deg_to_enc - offset
+            ang_enc = (angle * deg_to_enc - offset) * 1.05
             scale = 1
         else:
             ang_enc = (angle * deg_to_enc + offset) * 0.98 # negative angle seems to overshoot
@@ -355,10 +355,10 @@ class DiffDrive:
 
 class TestDiffDrive(unittest.TestCase):
     ACTIVE_TESTS = [
-        "left_motor",
-        "right_motor",
+        # "left_motor",
+        # "right_motor",
         # "rotation",
-        # "translation",
+        "translation",
         # "ball_detection"
     ]
 
@@ -446,8 +446,8 @@ class TestDiffDrive(unittest.TestCase):
     
     @unittest.skipIf("translation" not in ACTIVE_TESTS, "translation test skipped")
     def test_translation(self):
-        DISTANCE = -1
-        SPEED = 0.2
+        DISTANCE = -2
+        SPEED = 0.3
 
         print(f"Driving forward {DISTANCE} m")
         left, right, stop_code = self.dd.translate(DISTANCE, SPEED)

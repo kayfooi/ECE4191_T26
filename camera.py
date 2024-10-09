@@ -16,7 +16,7 @@ print(f"Camera modules import: {e-s:.3f} sec")
 GRADIENT_SIMILARITY_THRESH = 0.03
 INTERCEPT_DIFF_THRESH = 55
 RESULT_OUT_PREFIX = f'test_results/{int(time.time())}' # save results here for debugging
-LINE_CONF_THRESHOLD = 2000 # lower if we want more sensitivity
+LINE_CONF_THRESHOLD = 5000 # lower if we want more sensitivity
 IMG_WIDTH = 640
 IMG_HEIGHT = 480
 
@@ -215,7 +215,6 @@ class Camera:
         if img is None:
             # capture from camera
             img = self.capture()
-        
         results, YOLO_image = self.apply_YOLO_model(img, visualise=visualise)
         ball_locs = np.array(results['tennis-ball'])
 
@@ -804,6 +803,7 @@ def _capture_loop(detect=False, stream=False, straight_line=False):
             cv2.imshow('Calibration, [press q to quit, s to save]', result_img)
             k = cv2.waitKey(50) 
         else:
+            _overlay_calibration(result_img, stream=False)
             cv2.imwrite(out_file, result_img)
             print(f"Captured in {e-s} sec. Saved in {out_file}.")
             k = input("ENTER to continue, q to quit: ")
@@ -880,7 +880,7 @@ def _overlay_calibration(calibration_img = None, stream=False):
 
 
 if __name__ == '__main__':
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestCamera)
-    unittest.TextTestRunner(verbosity=0).run(suite)
-    # _capture_loop(detect=True, stream=False, straight_line=False)
+    # suite = unittest.TestLoader().loadTestsFromTestCase(TestCamera)
+    # unittest.TextTestRunner(verbosity=0).run(suite)
+    _capture_loop(detect=True, stream=False, straight_line=False)
     # _overlay_calibration(stream=False)

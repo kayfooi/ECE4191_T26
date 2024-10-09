@@ -99,12 +99,12 @@ collected_balls = 0
 plot_state("Initial state")
 
 # Initial crawl forward (since we cannot observe directly infront of us)
-stop_code = R.translate(0.8, speed = 0.15)
-if stop_code == 1: # ball detected
-    R.collect_ball()
-    collected_balls += 1
+# stop_code = R.translate(0.8, speed = 0.15)
+# if input("is ball there? ") == "y": # ball detected
+#     R.collect_ball()
+#     collected_balls += 1
 
-plot_state("Crawl forward")
+# plot_state("Crawl forward")
 
 while W.getElapsedTime() < COMPETITION_DURATION: 
     # 1. Identify and locate tennis balls
@@ -117,6 +117,7 @@ while W.getElapsedTime() < COMPETITION_DURATION:
     else:
         balls = R.detectBalls(sim_frame)
 
+    W.balls = []
     if len(balls) > 0:
         # Add balls to world state
         for b in balls:
@@ -133,41 +134,41 @@ while W.getElapsedTime() < COMPETITION_DURATION:
         print(f"Target ball at: ({target[0], target[1]})")
         # Face ball
         to_face_ball = R.calculateRotationDelta(target)
-        print(f"Rotating {to_face_ball:.2f}deg to face ball")
-        R.rotate(to_face_ball)
-
+        distance_to_ball = R.calculateDistance(target)
         # Double check existence of ball
-        if DEBUG:
-            balls, line_detect_img, YOLO_img = R.detectBalls(sim_frame, visualise=True)
+        # if DEBUG:
+        #     balls, line_detect_img, YOLO_img = R.detectBalls(sim_frame, visualise=True)
 
-            # Image outputs for debugging
-            cv2.imwrite(get_save_name('ball_detect_double_check'), line_detect_img)
-            cv2.imwrite(get_save_name('YOLO_double_check'), YOLO_img)
-        else:
-            balls = R.detectBalls(sim_frame)
+        #     # Image outputs for debugging
+        #     cv2.imwrite(get_save_name('ball_detect_double_check'), line_detect_img)
+        #     cv2.imwrite(get_save_name('YOLO_double_check'), YOLO_img)
+        # else:
+        #     balls = R.detectBalls(sim_frame)
 
-        found = 0
-        for b in balls:
-          found += W.addBall(b, R.pos)
-        print(f"Found {found} duplicate balls out of {len(balls)} total balls in double check.")
+        # found = 0
+        # for b in balls:
+        #   found += W.addBall(b, R.pos)
+        # print(f"Found {found} duplicate balls out of {len(balls)} total balls in double check.")
 
-        plot_state("Double check")
-        target_checked, target_checked_idx = W.getClosestBall(R.pos)
-        rotation = R.calculateRotationDelta(target_checked)
+        # plot_state("Double check")
+        # target_checked, target_checked_idx = W.getClosestBall(R.pos)
+        # rotation = R.calculateRotationDelta(target_checked)
         
         # Facing the ball (within X degrees)
-        if abs(rotation) < 2:
+        if abs(to_face_ball) < 20 and distance_to_ball < 0.8:
             # Travel 99% of the distance to the ball
-            r_stop_code, stop_code = R.travelTo(target_checked, 10, 0.15, 0.99)
+            r_stop_code = R.rotate(to_face_ball)
 
-            if stop_code == 0: # no ball found - rotate side to side
-                stop_code = R.rotate(5)
+            stop_code = R.translate(distance_to_ball - 0.15, speed=0.15)
+
+            # if stop_code == 0: # no ball found - rotate side to side
+            #     stop_code = R.rotate(5)
+            
+            # if stop_code == 0:
+            #     stop_code = R.rotate(-5)
             
             if stop_code == 0:
-                stop_code = R.rotate(-5)
-            
-            if stop_code == 0:
-                stop_code = R.translate(0.2, 0.15)
+                stop_code = R.translate(0.1, 0.05)
             
             # Detected ball with IR sensor
             if stop_code==1:
@@ -177,7 +178,14 @@ while W.getElapsedTime() < COMPETITION_DURATION:
                 plot_state("Collected Ball")
             else:
                 plot_state(f"Did not detect ball with IR Sensor. Stop code: {MOTOR_STOP_CODES[stop_code]}")
+                if input("Acutate paddle?") == 'y':
+                    R.collect_ball()
                 W.removedTarget() # remove from state to avoid confusion
+                collected_balls += 1
+        else:
+            print(f"Rotating {to_face_ball:.2f}deg to face ball")
+            R.rotate(to_face_ball)
+            R.translate(max(0.5, distance_to_ball - 0.6), speed=0.3)
     
     else:
         # Decide which direction to rotate on the spot
@@ -212,10 +220,14 @@ while W.getElapsedTime() < COMPETITION_DURATION:
             break 
 
         # Travel to center of quadrant for best view
+        print("Travelling to center")
         R.travelTo(W.vantage_points[0])
 
         # Face the theoretical position of the box (0, 0)
-        R.rotate(R.calculateRotationDelta(W.origin))
+        
+        face_box = R.calculateRotationDelta(W.origin)
+        print(f"Facing box {face_box}")
+        R.rotate(face_box)
 
         
         if DEBUG:
@@ -279,6 +291,7 @@ while W.getElapsedTime() < COMPETITION_DURATION:
     inp = input("Continue? y/n")
     if inp == 'n':
         break
+
 
         
 

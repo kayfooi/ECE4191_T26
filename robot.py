@@ -43,7 +43,7 @@ class Robot:
             self.tip_servo = None 
             self.paddle_servo = None
         
-        self.camera = Camera(open_cam=False)
+        self.camera = Camera(open_cam=True)
     
     def is_on_pi(self):
         return on_pi
@@ -61,7 +61,10 @@ class Robot:
         # Send rotation instruction
         if on_pi:
             rotation_left, rotation_right, stop_code = self.dd.rotate(-angle, speed)
-            self.th += (rotation_left + rotation_right) / 2
+            if angle > 0:
+                self.th += (abs(rotation_left) + abs(rotation_right)) / 2
+            else:
+                self.th -= (abs(rotation_left) + abs(rotation_right)) / 2
             return stop_code
         else:
             noise = 2 # magnitude of randomness (simulation)
@@ -140,7 +143,7 @@ class Robot:
         # make sure it is at home
         self.paddle_servo.set_angle(rest_angle)
 
-        self.paddle_servo.set_angle(collect_angle)
+        self.paddle_servo.set_angle(collect_angle, collect_speed)
         time.sleep(1) # allow the ball to roll off
         self.paddle_servo.set_angle(rest_angle, 50)
         time.sleep(1)
@@ -217,10 +220,6 @@ class Robot:
             else:
                 return None
         
-
-
-
-
     
     # -------- HELPER FUNCTIONS -----------
     

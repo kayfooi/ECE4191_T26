@@ -66,9 +66,9 @@ class Servo:
 
 class TestServo(unittest.TestCase):
     def setUp(self):
-        SERVO_GPIO = 14
+        PADDLE_SERVO_GPIO = 14
         pi = pigpio.pi()
-        self.servo = Servo(pi, SERVO_GPIO, 180)
+        self.servo = Servo(pi, PADDLE_SERVO_GPIO, 180)
 
     @unittest.skip("working")
     def test_servo_angle(self):
