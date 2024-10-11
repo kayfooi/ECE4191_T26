@@ -34,9 +34,9 @@ class Robot:
             self.pi = pigpio.pi()
             self.dd = DiffDrive(self.pi)
             
-            self.tip_servo = Servo(self.pi, TIPPING_SERVO_GPIO, 180) 
+            self.tip_servo = Servo(self.pi, TIPPING_SERVO_GPIO, 150) 
         
-            self.paddle_servo = Servo(self.pi, PADDLE_SERVO_GPIO, 177)
+            self.paddle_servo = Servo(self.pi, PADDLE_SERVO_GPIO, 180)
         else:
             self.pi = None 
             self.dd = None 
@@ -137,13 +137,13 @@ class Robot:
         Actuates paddle mechanism to collect ball
         """
         rest_angle = 180 # horizontal paddle
-        collect_angle = 12 # paddle aligns with bucket
-        collect_speed = 30 # degrees per second (can't be too quick or servo will stall)
+        collect_angle = 0 # paddle aligns with bucket
+        collect_speed = 90 # degrees per second (can't be too quick or servo will stall)
         
         # make sure it is at home
         self.paddle_servo.set_angle(rest_angle)
 
-        self.paddle_servo.set_angle(collect_angle, collect_speed)
+        self.paddle_servo.set_angle(collect_angle)
         time.sleep(1) # allow the ball to roll off
         self.paddle_servo.set_angle(rest_angle, 50)
         time.sleep(1)
@@ -157,28 +157,29 @@ class Robot:
         Actuates tipping mechanism to dump balls
         """
         # Dump
-        dump_angle = 85 # 
-        dump_speed = 15 # degrees per second
+        dump_angle = 60 # 
+        dump_speed = 180 # degrees per second
 
         # set paddle servo out of the way
-        self.paddle_servo.set_angle(135)
+        self.paddle_servo.set_angle(90, 70)
 
         # no speed limit - smoother dump
-        self.tip_servo.set_angle(dump_angle)
+        self.tip_servo.set_angle(dump_angle, dump_speed)
 
         time.sleep(3) # allow balls to exit
         # TODO: may have to add shaking mechanism if balls don't exit reliably
 
         # Return to original position
-        rest_angle = 177 # rest on the lip
+        rest_angle = 150 # rest on the lip
         return_speed = 50
+
 
         self.tip_servo.set_angle(rest_angle, return_speed)
         time.sleep(0.5)
         self.tip_servo.stop()
 
         # return paddle servo to home
-        self.paddle_servo.set_angle(180)
+        self.paddle_servo.set_angle(180, 50)
     
     def get_perpendicular_to_line(self, distance=2.0, img=None):
         """
@@ -352,16 +353,18 @@ class TestBot(unittest.TestCase):
     """
     ACTIVE_TESTS = [
         # "left_motor",
-        # "right_motor",
+        # right_motor",
         # "rotation",
         # "translation",
+        # "rotation_translation",
         # "ball_detection_cam"
         # "collect_ball"
         # "dump_balls"
-        # "collect_and_dump"
+        "collect_and_dump"
         # "detect_travel_collect_dump"
         # "detect_and_travel_to"
-        "get_perpendicular_to_ball"
+        # "get_perpendicular_to_ball"
+        #" travel_to"
     ]
     
     def setUp(self):
@@ -371,7 +374,7 @@ class TestBot(unittest.TestCase):
     def test_rotation_translation(self):
         init_pos = self.bot.pos.copy()
 
-        rotation = 45
+        rotation = -45
         self.bot.rotate(rotation)
         distance = np.sqrt(0.3**2 + 0.3**2)
         self.bot.translate(distance)

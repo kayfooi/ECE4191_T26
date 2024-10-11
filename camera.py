@@ -16,7 +16,7 @@ print(f"Camera modules import: {e-s:.3f} sec")
 GRADIENT_SIMILARITY_THRESH = 0.03
 INTERCEPT_DIFF_THRESH = 55
 RESULT_OUT_PREFIX = f'test_results/{int(time.time())}' # save results here for debugging
-LINE_CONF_THRESHOLD = 5000 # lower if we want more sensitivity
+LINE_CONF_THRESHOLD = 4000 # lower if we want more sensitivity
 IMG_WIDTH = 640
 IMG_HEIGHT = 480
 
@@ -147,7 +147,7 @@ class Camera:
             scores = detection[4:]
             class_id = np.argmax(scores)
             confidence = scores[class_id]
-            if confidence > 0.5:
+            if confidence > 0.01:
                 # Object detected
                 xywh = detection[:4] / 640
                 y = detection[1]
@@ -186,7 +186,8 @@ class Camera:
                 x, y, w, h = boxes[i]
                 color = colors[class_ids[i]]
                 
-                results[label].append(np.array([x + w/2, y + h]).astype(int))
+                if label == 'box' or confidences[i] > 0.5:
+                    results[label].append(np.array([x + w/2, y + h]).astype(int))
                 
                 if visualise:
                     cv2.rectangle(vis_image, (x, y), (x + w, y + h), color, 2)
@@ -663,7 +664,7 @@ def visualize_results(image, target_point, confidence, lines, leading_edge = [],
     #             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
     colour = (0, 0, 255) if confidence > LINE_CONF_THRESHOLD else (0,255,0)
     cv2.putText(vis_image, f"Line confidence: {confidence:.2f}", 
-                (np.clip(target_point[0], 10, width-30), np.clip(target_point[1], 10, height-10)),
+                (np.clip(target_point[0], 10, width//2), np.clip(target_point[1], 10, height-10)),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, colour, 2)
     
     return vis_image
@@ -730,7 +731,7 @@ class TestCamera(unittest.TestCase):
             locs, result_img = self.cam.detectBalls(image, visualise=True)
             cv2.imwrite(f"{RESULT_OUT_PREFIX}/ball_detect_result_{n}.jpg", result_img)
     
-    # @unittest.skip("skipped")
+    @unittest.skip("skipped")
     def test_line_detection(self):
         # pass images to line detection
         for n in range(192, 193):
@@ -750,13 +751,14 @@ class TestCamera(unittest.TestCase):
                 lines, confidence = detect_white_line(image, target_point, 12)
                 e = time.time()
     
-    @unittest.skip("skipped")
+    # @unittest.skip("skipped")
     def test_box_detection(self):
         # Open images and pass to function
         self.cam = Camera(False)
-        for n in range(1,6):
-            image_path = f'CV/test_imgs/box/{n:04g}.jpg'
+        for n in range(1):
+            # image_path = f'CV/test_imgs/box/{n:04g}.jpg'
             # image_path = f'./test_imgs/blender/oneball/normal{n:04g}.jpg'
+            image_path = "main_out/014948_0003_box_detect.jpg"
             image = cv2.imread(image_path)
             locs, result_img = self.cam.detect_box(image, visualise=True)
             cv2.imwrite(f"{RESULT_OUT_PREFIX}/box_detect_result_{n}.jpg", result_img)
@@ -880,7 +882,7 @@ def _overlay_calibration(calibration_img = None, stream=False):
 
 
 if __name__ == '__main__':
-    # suite = unittest.TestLoader().loadTestsFromTestCase(TestCamera)
-    # unittest.TextTestRunner(verbosity=0).run(suite)
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestCamera)
+    unittest.TextTestRunner(verbosity=0).run(suite)
     _capture_loop(detect=True, stream=False, straight_line=False)
     # _overlay_calibration(stream=False)

@@ -30,9 +30,9 @@ import numpy as np
 et = time.time()
 print(f"Modules loaded in {(et-st) : .3f} sec")
 
-COMPETITION_DURATION = 60*5 # seconds
+COMPETITION_DURATION = 60*10 # seconds
 DUMP_TIME = 60 # seconds remaining to dump balls
-BALL_CAPACITY = 0 # 5
+BALL_CAPACITY = 1
 DEBUG = True # output a lot of images / logs
 MOTOR_STOP_CODES = [
     "Reached encoder count",
@@ -133,7 +133,7 @@ while W.getElapsedTime() < COMPETITION_DURATION:
     if target is not None:
         print(f"Target ball at: ({target[0], target[1]})")
         # Face ball
-        to_face_ball = R.calculateRotationDelta(target)
+        to_face_ball = R.calculateRotationDelta(target)*0.9
         distance_to_ball = R.calculateDistance(target)
         # Double check existence of ball
         # if DEBUG:
@@ -159,7 +159,7 @@ while W.getElapsedTime() < COMPETITION_DURATION:
             # Travel 99% of the distance to the ball
             r_stop_code = R.rotate(to_face_ball)
 
-            stop_code = R.translate(distance_to_ball - 0.15, speed=0.15)
+            stop_code = R.translate(distance_to_ball - 0.15, speed=0.1)
 
             # if stop_code == 0: # no ball found - rotate side to side
             #     stop_code = R.rotate(5)
@@ -178,14 +178,14 @@ while W.getElapsedTime() < COMPETITION_DURATION:
                 plot_state("Collected Ball")
             else:
                 plot_state(f"Did not detect ball with IR Sensor. Stop code: {MOTOR_STOP_CODES[stop_code]}")
-                if input("Acutate paddle?") == 'y':
-                    R.collect_ball()
+                # if input("Acutate paddle?") == 'y':
+                R.collect_ball()
                 W.removedTarget() # remove from state to avoid confusion
                 collected_balls += 1
         else:
             print(f"Rotating {to_face_ball:.2f}deg to face ball")
             R.rotate(to_face_ball)
-            R.translate(max(0.5, distance_to_ball - 0.6), speed=0.3)
+            R.translate(max(0.8, distance_to_ball - 0.8), speed=0.3)
     
     else:
         # Decide which direction to rotate on the spot
@@ -215,8 +215,8 @@ while W.getElapsedTime() < COMPETITION_DURATION:
         # 5. Navigate to and reverse up to the box
 
         # Safe exit
-        inp = input("Navigating to box, continue? y/n")
-        if inp == 'n':
+        # inp = input("Navigating to box, continue? y/n")
+        if False: # inp == 'n':
             break 
 
         # Travel to center of quadrant for best view
@@ -258,25 +258,25 @@ while W.getElapsedTime() < COMPETITION_DURATION:
             to_face_line = R.calculateRotationDelta(np.array([0, R.pos[1]]))
             R.rotate(to_face_line) # rotate to face a line
             plot_state("Rotation facing line")
-            distance_to_line = 1.25 # R.get_perpendicular_to_line(distance=abs(R.pos[1])+1)
+            distance_to_line = R.get_perpendicular_to_line(distance=abs(R.pos[1])+1)
             
             # No line found. Intervention needed
             if distance_to_line is None:
                 print("I am lost. Put me in-front to the box and I'll dump the balls.")
                 input("Press ENTER when done.")
-                # R.dump_balls()
+                R.dump_balls() # commented
                 
             else:
                 # stop early
-                R.translate(distance_to_line-0.15, speed=0.2)
+                R.translate(distance_to_line-0.2, speed=0.2)
                 to_face_box = round(R.calculateRotationDelta(W.origin)/90) * 90
                 R.rotate(-to_face_box) # face away from box
 
                 # Reverse to box (make this a function in robot or WheelMotor)
-                R.translate(-(distance_to_box**2 - distance_to_line**2)**0.5)
+                R.translate(-2.0, 0.1)
 
                 # if successful
-                # R.dump_balls()
+                R.dump_balls() # commented
             
             # reset location
             R.pos = W.box_park.copy()
@@ -288,7 +288,7 @@ while W.getElapsedTime() < COMPETITION_DURATION:
             collected_balls = 0
     
     # Safe exit
-    inp = input("Continue? y/n")
+    inp = 'y' # input("Continue? y/n")
     if inp == 'n':
         break
 

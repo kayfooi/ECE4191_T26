@@ -46,8 +46,11 @@ class Servo:
         while (current_pw + direction * increment - target_pulse_width) * direction <= 0:
             # print(current_pw)
             current_pw += direction * increment
-            assert(600 <= current_pw <= 2400), "Pulse Width must be between 600 and 2400"
-            self.pi.set_servo_pulsewidth(self.pin, current_pw)
+            # assert(600 <= current_pw <= 2400), "Pulse Width must be between 600 and 2400"
+            if 600 <= current_pw <= 2400:
+                self.pi.set_servo_pulsewidth(self.pin, current_pw)
+            else:
+                break
             sleep(update_delay)
             count += 1
         # print(count)
@@ -67,8 +70,10 @@ class Servo:
 class TestServo(unittest.TestCase):
     def setUp(self):
         PADDLE_SERVO_GPIO = 14
+        TIPPING_SERVO_GPIO = 7
         pi = pigpio.pi()
-        self.servo = Servo(pi, PADDLE_SERVO_GPIO, 180)
+         #self.servo = Servo(pi, PADDLE_SERVO_GPIO, 180)
+        self.servo = Servo(pi, TIPPING_SERVO_GPIO, 60)
 
     @unittest.skip("working")
     def test_servo_angle(self):
@@ -128,9 +133,12 @@ class TestServo(unittest.TestCase):
         Test random angles to tune parameters
         """
         # Paddle Mechanism
-        self.servo.set_angle(180, 50)
+        self.servo.set_angle(150, 50)
         sleep(1)
-        self.servo.set_angle(0, 30)
+        self.servo.set_angle(60, 50)
+        sleep(1)
+        self.servo.set_angle(150, 50)
+        sleep(1)
         self.servo.stop()
         # Dumping Mechanisms
         # self.servo.set_angle(85, 15)

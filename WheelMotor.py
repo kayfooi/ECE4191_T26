@@ -355,10 +355,10 @@ class DiffDrive:
 
 class TestDiffDrive(unittest.TestCase):
     ACTIVE_TESTS = [
-        # "left_motor",
-        # "right_motor",
+        "left_motor",
+        "right_motor",
         # "rotation",
-        "translation",
+        # "translation",
         # "ball_detection"
     ]
 

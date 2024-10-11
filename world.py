@@ -10,7 +10,7 @@ from matplotlib.patches import Rectangle
 QUAD_WIDTH = 4.11 # width of all quadrant
 NETLINE = 6.40 # y distance from net to center line
 BASELINE = 5.48 # y distance from baseline to center line
-SP_OS = 0.2 # Start Point Offset: Start the robot at this offset from corner in both x and y directions
+SP_OS = 0.4 # Start Point Offset: Start the robot at this offset from corner in both x and y directions
 BOX_LENGTH = 0.6
 BOX_WIDTH = 0.45
 BOT_LENGTH = 0.4 # from camera to back
